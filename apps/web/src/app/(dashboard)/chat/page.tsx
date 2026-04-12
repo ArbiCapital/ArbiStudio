@@ -1,9 +1,10 @@
 "use client";
 
+import { useRef, useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatInput } from "@/components/chat/chat-input";
-import { ChatMessage } from "@/components/chat/chat-message";
+import { ChatMessage, ChatMessageLoading } from "@/components/chat/chat-message";
 import { FormatSwitcher } from "@/components/chat/format-switcher";
 import {
   ImageIcon,
@@ -18,7 +19,7 @@ const QUICK_ACTIONS = [
   {
     icon: ImageIcon,
     label: "Crear imagen",
-    prompt: "Genera una imagen fotorrealista de producto para Instagram",
+    prompt: "Genera una imagen fotorrealista de un reloj de lujo sobre fondo de marmol blanco, luz natural suave, para Instagram feed",
   },
   {
     icon: Film,
@@ -46,6 +47,7 @@ const QUICK_ACTIONS = [
 
 export default function ChatPage() {
   const { messages, sendMessage, status } = useChat();
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const isLoading = status === "streaming" || status === "submitted";
 
@@ -53,36 +55,38 @@ export default function ChatPage() {
     sendMessage({ text: content });
   };
 
+  // Auto-scroll on new messages
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isLoading]);
+
   return (
     <div className="flex h-full flex-col">
       {/* Format switcher bar */}
       <FormatSwitcher />
 
       {/* Chat messages */}
-      <ScrollArea className="flex-1">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl">
           {messages.length === 0 ? (
             <EmptyState onAction={handleSubmit} />
           ) : (
-            messages.map((message) => (
-              <ChatMessage
-                key={message.id}
-                role={message.role as "user" | "assistant"}
-                content={
-                  message.parts
-                    ?.filter((p): p is { type: "text"; text: string } => p.type === "text")
-                    .map((p) => p.text)
-                    .join("") || ""
-                }
-              />
-            ))
-          )}
+            <>
+              {messages.map((message) => (
+                <ChatMessage key={message.id} message={message} />
+              ))}
 
-          {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
-            <ChatMessage role="assistant" content="" isLoading />
+              {isLoading &&
+                messages.length > 0 &&
+                messages[messages.length - 1].role === "user" && (
+                  <ChatMessageLoading />
+                )}
+            </>
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Chat input */}
       <ChatInput onSubmit={handleSubmit} isLoading={isLoading} />
@@ -93,7 +97,6 @@ export default function ChatPage() {
 function EmptyState({ onAction }: { onAction: (prompt: string) => void }) {
   return (
     <div className="flex h-full min-h-[60vh] flex-col items-center justify-center px-4">
-      {/* Logo */}
       <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
         <Sparkles className="h-8 w-8 text-primary" />
       </div>
@@ -104,7 +107,6 @@ function EmptyState({ onAction }: { onAction: (prompt: string) => void }) {
         — todo desde este chat.
       </p>
 
-      {/* Quick actions */}
       <div className="grid w-full max-w-lg grid-cols-1 gap-2 sm:grid-cols-2">
         {QUICK_ACTIONS.map((action) => (
           <button
@@ -115,7 +117,7 @@ function EmptyState({ onAction }: { onAction: (prompt: string) => void }) {
             <action.icon className="h-5 w-5 shrink-0 text-primary" />
             <div>
               <div className="font-medium">{action.label}</div>
-              <div className="text-xs text-muted-foreground line-clamp-1">
+              <div className="line-clamp-1 text-xs text-muted-foreground">
                 {action.prompt}
               </div>
             </div>
