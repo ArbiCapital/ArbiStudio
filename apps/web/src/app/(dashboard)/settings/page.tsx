@@ -61,11 +61,11 @@ export default function SettingsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="mb-1 block text-sm text-muted-foreground">Nombre</label>
-                    <Input defaultValue="Oscar" />
+                    <Input placeholder="Tu nombre" />
                   </div>
                   <div>
                     <label className="mb-1 block text-sm text-muted-foreground">Email</label>
-                    <Input defaultValue="arbicapitaluae@gmail.com" disabled />
+                    <Input placeholder="tu@email.com" disabled />
                   </div>
                 </div>
                 <Button className="mt-4">Guardar cambios</Button>

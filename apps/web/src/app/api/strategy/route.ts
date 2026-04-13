@@ -26,6 +26,14 @@ const strategySchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const { requireAuth } = await import("@/lib/api-auth");
+    const auth = await requireAuth();
+    if (!auth.authenticated) return auth.error!;
+
+    const { rateLimit, getClientIp } = await import("@/lib/rate-limit");
+    const { success } = rateLimit(`strategy:${getClientIp(req)}`, 5, 60_000);
+    if (!success) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+
     const { industry, audience, platforms, month, year, postsPerWeek } = await req.json();
 
     const result = await generateObject({

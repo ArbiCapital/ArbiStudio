@@ -5,6 +5,14 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
+    const { requireAuth } = await import("@/lib/api-auth");
+    const auth = await requireAuth();
+    if (!auth.authenticated) return auth.error!;
+
+    const { rateLimit, getClientIp } = await import("@/lib/rate-limit");
+    const { success } = rateLimit(`soul:${getClientIp(req)}`, 3, 60_000);
+    if (!success) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+
     if (!process.env.FAL_KEY) {
       return NextResponse.json({ error: "FAL_KEY not configured" }, { status: 500 });
     }

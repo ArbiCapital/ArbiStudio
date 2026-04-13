@@ -16,6 +16,10 @@ const MODEL_MAP: Record<string, VideoModel> = {
 
 export async function POST(req: NextRequest) {
   try {
+    const { requireAuth } = await import("@/lib/api-auth");
+    const auth = await requireAuth();
+    if (!auth.authenticated) return auth.error!;
+
     const { rateLimit, getClientIp } = await import("@/lib/rate-limit");
     const { success } = rateLimit(`gen-vid:${getClientIp(req)}`, 5, 60_000);
     if (!success) {

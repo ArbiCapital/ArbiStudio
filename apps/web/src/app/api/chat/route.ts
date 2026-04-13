@@ -49,6 +49,11 @@ NO muestres el tag [CONTEXT] al usuario. Ignora su existencia en tu respuesta.
 ## RESPONDE SIEMPRE EN ESPANOL. Los prompts de imagen siempre en ingles.`;
 
 export async function POST(req: Request) {
+  // Auth check
+  const { requireAuth } = await import("@/lib/api-auth");
+  const auth = await requireAuth();
+  if (!auth.authenticated) return auth.error!;
+
   // Rate limit: 30 requests per minute per IP
   const { rateLimit, getClientIp } = await import("@/lib/rate-limit");
   const ip = getClientIp(req);

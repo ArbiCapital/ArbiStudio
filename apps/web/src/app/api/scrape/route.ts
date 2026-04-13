@@ -4,6 +4,10 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
+    const { requireAuth } = await import("@/lib/api-auth");
+    const auth = await requireAuth();
+    if (!auth.authenticated) return auth.error!;
+
     // Rate limit + SSRF protection
     const { rateLimit, getClientIp, isSafeUrl } = await import("@/lib/rate-limit");
     const ip = getClientIp(req);

@@ -12,14 +12,23 @@ const VOICE_MAP: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   try {
+    const { requireAuth, validateText } = await import("@/lib/api-auth");
+    const auth = await requireAuth();
+    if (!auth.authenticated) return auth.error!;
+
+    const { rateLimit, getClientIp } = await import("@/lib/rate-limit");
+    const { success } = rateLimit(`tts:${getClientIp(req)}`, 10, 60_000);
+    if (!success) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+
     if (!process.env.ELEVENLABS_API_KEY) {
       return NextResponse.json({ error: "ELEVENLABS_API_KEY not configured" }, { status: 500 });
     }
 
     const { text, voiceId, language } = await req.json();
 
-    if (!text) {
-      return NextResponse.json({ error: "Text is required" }, { status: 400 });
+    const validation = validateText(text, 5000, "text");
+    if (!validation.valid) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
     const selectedVoice = voiceId || VOICE_MAP["isabella-es"] || "LcfcDJNlP1WERjJ8eyKu";

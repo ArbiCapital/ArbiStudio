@@ -6,6 +6,10 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
+    const { requireAuth } = await import("@/lib/api-auth");
+    const auth = await requireAuth();
+    if (!auth.authenticated) return auth.error!;
+
     const { rateLimit, getClientIp } = await import("@/lib/rate-limit");
     const { success } = rateLimit(`gen-img:${getClientIp(req)}`, 15, 60_000);
     if (!success) {

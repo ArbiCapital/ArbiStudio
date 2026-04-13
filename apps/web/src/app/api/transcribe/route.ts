@@ -4,6 +4,14 @@ export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
   try {
+    const { requireAuth, safeError } = await import("@/lib/api-auth");
+    const auth = await requireAuth();
+    if (!auth.authenticated) return auth.error!;
+
+    const { rateLimit, getClientIp } = await import("@/lib/rate-limit");
+    const { success } = rateLimit(`transcribe:${getClientIp(req)}`, 5, 60_000);
+    if (!success) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 });
     }
@@ -14,6 +22,11 @@ export async function POST(req: NextRequest) {
 
     if (!audioFile) {
       return NextResponse.json({ error: "Audio file required" }, { status: 400 });
+    }
+
+    // File size limit: 25MB (Whisper API max)
+    if (audioFile.size > 25 * 1024 * 1024) {
+      return NextResponse.json({ error: "File too large. Max 25MB." }, { status: 400 });
     }
 
     // Call OpenAI Whisper API
@@ -59,9 +72,7 @@ export async function POST(req: NextRequest) {
       })) || [],
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Transcription failed" },
-      { status: 500 }
-    );
+    const { safeError } = await import("@/lib/api-auth");
+    return NextResponse.json({ error: safeError(error) }, { status: 500 });
   }
 }
