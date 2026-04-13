@@ -34,9 +34,17 @@ export default function VideoStudioPage() {
   const [selectedCamera, setSelectedCamera] = useState<string | null>(null);
   const [selectedLens, setSelectedLens] = useState("50mm-portrait");
   const [selectedGrading, setSelectedGrading] = useState("none");
+  const [selectedModel, setSelectedModel] = useState("kling");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
+
+  const VIDEO_MODELS = [
+    { id: "kling", name: "Kling 2.0", desc: "El mas realista — ideal para anuncios", cost: "~$0.40" },
+    { id: "runway", name: "Runway Gen-3", desc: "Cinematografico, image-to-video", cost: "~$0.50" },
+    { id: "minimax", name: "Minimax", desc: "Rapido y economico", cost: "~$0.10" },
+    { id: "wan", name: "Wan 2.1", desc: "Economico, calidad basica", cost: "~$0.08" },
+  ];
 
   const handleGenerate = async () => {
     if (!prompt) return;
@@ -56,7 +64,7 @@ export default function VideoStudioPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: enhancedPrompt,
-          model: "minimax",
+          model: selectedModel,
           aspectRatio: "16:9",
         }),
       });
@@ -151,6 +159,28 @@ export default function VideoStudioPage() {
         {/* Prompt area */}
         <div className="border-t border-border p-4">
           <div className="mx-auto max-w-3xl">
+            {/* Model selector */}
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Modelo:</span>
+              {VIDEO_MODELS.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setSelectedModel(m.id)}
+                  className={`rounded-full px-3 py-1 text-xs transition-all ${
+                    selectedModel === m.id
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  }`}
+                  title={`${m.desc} (${m.cost})`}
+                >
+                  {m.name}
+                </button>
+              ))}
+              <span className="ml-auto text-[10px] text-muted-foreground">
+                {VIDEO_MODELS.find((m) => m.id === selectedModel)?.desc} ({VIDEO_MODELS.find((m) => m.id === selectedModel)?.cost})
+              </span>
+            </div>
+
             <Textarea
               placeholder="Describe el video que quieres generar... (ej: 'Un reloj de lujo girando lentamente sobre marmol negro, luz cinematografica')"
               value={prompt}

@@ -4,9 +4,10 @@ import { fal } from "@fal-ai/client";
 export const maxDuration = 300; // 5 min — video generation is slow
 
 const MODEL_MAP: Record<string, string> = {
+  "kling": "fal-ai/kling-video/v2/master",
+  "runway": "fal-ai/runway-gen3/turbo/image-to-video",
   "minimax": "fal-ai/minimax-video",
   "wan": "fal-ai/wan/v2.1",
-  "hunyuan": "fal-ai/hunyuan-video",
 };
 
 export async function POST(req: NextRequest) {
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
 
     fal.config({ credentials: process.env.FAL_KEY });
 
-    const selectedModel = MODEL_MAP[model || "minimax"] || MODEL_MAP.minimax;
+    const selectedModel = MODEL_MAP[model || "kling"] || MODEL_MAP.kling;
 
     const result = await fal.subscribe(selectedModel, {
       input: {
