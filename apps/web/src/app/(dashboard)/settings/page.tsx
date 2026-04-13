@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Settings,
   User,
@@ -21,6 +21,15 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export default function SettingsPage() {
+  const [apiStatus, setApiStatus] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((data) => setApiStatus(data.keys || {}))
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-border px-6 py-4">
@@ -97,17 +106,26 @@ export default function SettingsPage() {
             </TabsContent>
 
             <TabsContent value="integrations" className="space-y-6">
+              <Section title="IA y Generacion">
+                <IntegrationRow name="Claude (Anthropic)" description="Chat, estrategia, analisis" connected={apiStatus.anthropic} />
+                <IntegrationRow name="fal.ai" description="Imagenes, video, personajes" connected={apiStatus.fal} />
+                <IntegrationRow name="OpenAI Whisper" description="Transcripcion de audio" connected={apiStatus.openai} />
+                <IntegrationRow name="ElevenLabs" description="Voiceover, lipsync" connected={apiStatus.elevenlabs} />
+                <IntegrationRow name="Google Gemini" description="Imagenes 4K (opcional)" connected={apiStatus.gemini} />
+                <IntegrationRow name="Supabase" description="Base de datos, auth, storage" connected={apiStatus.supabase} />
+              </Section>
+
               <Section title="Plataformas de Ads">
                 <IntegrationRow
                   name="Meta Ads"
                   description="Facebook + Instagram Ads"
-                  connected={false}
+                  connected={apiStatus.meta}
                   instructions="Necesitas crear una Meta Developer App en developers.facebook.com"
                 />
                 <IntegrationRow
                   name="Google Ads"
                   description="Search, Display, YouTube"
-                  connected={false}
+                  connected={apiStatus.google_ads}
                   instructions="Requiere Developer Token de Google Ads API"
                 />
                 <IntegrationRow
