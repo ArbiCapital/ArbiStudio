@@ -123,7 +123,7 @@ export default function DashboardLayout({
         <Separator />
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 p-2">
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
           {NAV_ITEMS.map((item) => {
             const isActive = pathname.startsWith(item.href);
             const link = (
@@ -191,7 +191,7 @@ export default function DashboardLayout({
         )}
 
         {/* Logout */}
-        <div className="border-t border-border p-3">
+        <div className="mt-auto shrink-0 border-t border-border p-3">
           <Button
             variant="ghost"
             className={cn(
