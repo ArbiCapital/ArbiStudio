@@ -4,7 +4,7 @@ import { fal } from "@fal-ai/client";
 export const maxDuration = 300; // 5 min — video generation is slow
 
 const MODEL_MAP: Record<string, string> = {
-  "kling": "fal-ai/kling-video/v2",
+  "kling": "fal-ai/kling-video/v2.1/standard/text-to-video",
   "runway": "fal-ai/runway-gen3/turbo/image-to-video",
   "minimax": "fal-ai/minimax-video",
   "wan": "fal-ai/wan/v2.1",

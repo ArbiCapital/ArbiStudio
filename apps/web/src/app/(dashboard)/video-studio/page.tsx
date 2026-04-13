@@ -40,7 +40,7 @@ export default function VideoStudioPage() {
   const [videoError, setVideoError] = useState<string | null>(null);
 
   const VIDEO_MODELS = [
-    { id: "kling", name: "Kling 2.0", desc: "El mas realista — ideal para anuncios", cost: "~$0.40" },
+    { id: "kling", name: "Kling 2.1", desc: "El mas realista — ideal para anuncios", cost: "~$0.40" },
     { id: "runway", name: "Runway Gen-3", desc: "Cinematografico, image-to-video", cost: "~$0.50" },
     { id: "minimax", name: "Minimax", desc: "Rapido y economico", cost: "~$0.10" },
     { id: "wan", name: "Wan 2.1", desc: "Economico, calidad basica", cost: "~$0.08" },
