@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Film,
   Play,
@@ -14,6 +14,9 @@ import {
   Sparkles,
   SlidersHorizontal,
   Clapperboard,
+  Download,
+  BookmarkPlus,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +42,9 @@ export default function VideoStudioPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
+  const [savedToLibrary, setSavedToLibrary] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadedVideo, setUploadedVideo] = useState<string | null>(null);
 
   const VIDEO_MODELS = [
     { id: "kling", name: "Kling 2.1", desc: "El mas realista — ideal para anuncios", cost: "~$1.40/10s", maxDuration: 10 },
@@ -55,10 +61,36 @@ export default function VideoStudioPage() {
     { value: "15", label: "15s" },
   ].filter((d) => parseInt(d.value) <= (currentModel?.maxDuration || 10));
 
+  const handleSaveToLibrary = () => {
+    if (!generatedVideo) return;
+    const { saveAssetToLibrary } = require("@/lib/asset-storage");
+    saveAssetToLibrary({
+      type: "video" as const,
+      url: generatedVideo,
+      width: 1920,
+      height: 1080,
+      model: currentModel?.name || "Kling",
+      ratio: "16:9",
+      prompt,
+      createdAt: new Date().toISOString(),
+    });
+    setSavedToLibrary(true);
+    setTimeout(() => setSavedToLibrary(false), 3000);
+  };
+
+  const handleUploadVideo = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setUploadedVideo(url);
+    setGeneratedVideo(url);
+  };
+
   const handleGenerate = async () => {
     if (!prompt) return;
     setIsGenerating(true);
     setVideoError(null);
+    setSavedToLibrary(false);
 
     let enhancedPrompt = prompt;
     const camera = CAMERA_PRESETS.find((p) => p.id === selectedCamera);
@@ -104,14 +136,38 @@ export default function VideoStudioPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/*"
+              onChange={handleUploadVideo}
+              className="hidden"
+            />
+            <Button variant="outline" className="gap-2" onClick={() => fileInputRef.current?.click()}>
               <Upload className="h-4 w-4" />
               Subir video
             </Button>
-            <Button className="gap-2">
-              <Clapperboard className="h-4 w-4" />
-              Storyboard
-            </Button>
+            {generatedVideo && (
+              <>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => window.open(generatedVideo, "_blank")}
+                >
+                  <Download className="h-4 w-4" />
+                  Descargar
+                </Button>
+                <Button
+                  className="gap-2"
+                  variant={savedToLibrary ? "outline" : "default"}
+                  onClick={handleSaveToLibrary}
+                  disabled={savedToLibrary}
+                >
+                  {savedToLibrary ? <Check className="h-4 w-4" /> : <BookmarkPlus className="h-4 w-4" />}
+                  {savedToLibrary ? "Guardado" : "Guardar en Libreria"}
+                </Button>
+              </>
+            )}
           </div>
         </div>
 

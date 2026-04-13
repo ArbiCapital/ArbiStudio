@@ -56,5 +56,31 @@ export function extractAllAssets(): ExtractedAsset[] {
     }
   }
 
+  // Also load manually saved assets from Video Studio, Lipsync, etc.
+  const manual = getManualAssets();
+  assets.push(...manual);
+
   return assets.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+const MANUAL_ASSETS_KEY = "arbistudio-library-assets";
+
+export function getManualAssets(): ExtractedAsset[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(localStorage.getItem(MANUAL_ASSETS_KEY) || "[]");
+  } catch { return []; }
+}
+
+export function saveAssetToLibrary(asset: Omit<ExtractedAsset, "id" | "conversationId" | "conversationTitle">) {
+  const existing = getManualAssets();
+  const newAsset: ExtractedAsset = {
+    ...asset,
+    id: `manual-${Date.now()}`,
+    conversationId: "manual",
+    conversationTitle: "Video Studio",
+  };
+  existing.push(newAsset);
+  localStorage.setItem(MANUAL_ASSETS_KEY, JSON.stringify(existing));
+  return newAsset;
 }
