@@ -4,11 +4,6 @@ import { useRef, useState } from "react";
 import { Send, Paperclip, ImageIcon, Film, Sparkles, Link } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 interface ChatInputProps {
   onSubmit: (message: string, attachments?: File[]) => void;
@@ -38,65 +33,45 @@ export function ChatInput({ onSubmit, isLoading }: ChatInputProps) {
         <div className="relative rounded-2xl border border-border bg-muted/30 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20">
           {/* Quick actions */}
           <div className="flex items-center gap-1 border-b border-border/50 px-3 py-1.5">
-            <Tooltip>
-              <TooltipTrigger>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Paperclip className="h-3.5 w-3.5" />
-                  Adjuntar
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Subir imagen o video</TooltipContent>
-            </Tooltip>
+            <div
+              role="button"
+              tabIndex={0}
+              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+              Adjuntar
+            </div>
 
-            <Tooltip>
-              <TooltipTrigger>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
-                  onClick={() => setInput(input + "/image ")}
-                >
-                  <ImageIcon className="h-3.5 w-3.5" />
-                  Imagen
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Generar imagen</TooltipContent>
-            </Tooltip>
+            <div
+              role="button"
+              tabIndex={0}
+              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer"
+              onClick={() => setInput(input + "/image ")}
+            >
+              <ImageIcon className="h-3.5 w-3.5" />
+              Imagen
+            </div>
 
-            <Tooltip>
-              <TooltipTrigger>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
-                  onClick={() => setInput(input + "/video ")}
-                >
-                  <Film className="h-3.5 w-3.5" />
-                  Video
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Generar o editar video</TooltipContent>
-            </Tooltip>
+            <div
+              role="button"
+              tabIndex={0}
+              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer"
+              onClick={() => setInput(input + "/video ")}
+            >
+              <Film className="h-3.5 w-3.5" />
+              Video
+            </div>
 
-            <Tooltip>
-              <TooltipTrigger>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
-                  onClick={() => setInput(input + "/analyze ")}
-                >
-                  <Link className="h-3.5 w-3.5" />
-                  Click-to-Ad
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Pega una URL para generar anuncios</TooltipContent>
-            </Tooltip>
+            <div
+              role="button"
+              tabIndex={0}
+              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer"
+              onClick={() => setInput(input + "/analyze ")}
+            >
+              <Link className="h-3.5 w-3.5" />
+              Click-to-Ad
+            </div>
           </div>
 
           {/* Textarea */}

@@ -40,7 +40,16 @@ const SYSTEM_PROMPT = `Eres ArbiStudio, el asistente de creacion de contenido IA
 3. Tras la generacion, sugiere: editar, variantes, otros formatos, publicar`;
 
 export async function POST(req: Request) {
-  const { messages } = await req.json();
+  const { messages: rawMessages } = await req.json();
+
+  // Convert UI messages (parts-based) to model messages (content-based)
+  const messages = rawMessages.map((msg: any) => {
+    if (msg.content) return msg; // Already in model format
+    // Extract text from parts
+    const textParts = msg.parts?.filter((p: any) => p.type === "text") || [];
+    const content = textParts.map((p: any) => p.text).join("") || "";
+    return { role: msg.role, content };
+  });
 
   const result = streamText({
     model: anthropic("claude-sonnet-4-20250514"),

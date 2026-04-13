@@ -142,8 +142,8 @@ function ImageToolResult({
   const model = (args.model as string) || "flux-pro";
   const ratio = (args.ratio as string) || "1:1";
 
-  // Loading state
-  if (state !== "result") {
+  // Loading state — v6 uses "output-available" when tool execution is done
+  if (state !== "output-available") {
     return (
       <div className="rounded-xl border border-border bg-muted/30 p-4">
         <div className="flex items-center gap-3">
