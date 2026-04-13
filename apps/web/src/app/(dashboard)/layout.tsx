@@ -131,7 +131,7 @@ export default function DashboardLayout({
           })}
         </nav>
 
-        {/* Recent conversations */}
+        {/* Recent conversations — loaded from localStorage in chat page */}
         {!collapsed && (
           <>
             <Separator />
@@ -140,15 +140,10 @@ export default function DashboardLayout({
                 Recientes
               </p>
               <ScrollArea className="h-40">
-                <div className="space-y-1">
-                  <button className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent/50 hover:text-foreground">
-                    <Film className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">Reels campana Q2...</span>
-                  </button>
-                  <button className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent/50 hover:text-foreground">
-                    <ImageIcon className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">Anuncios reloj lujo...</span>
-                  </button>
+                <div className="space-y-1" id="sidebar-conversations">
+                  <p className="px-2 text-xs text-muted-foreground/50">
+                    Las conversaciones apareceran aqui
+                  </p>
                 </div>
               </ScrollArea>
             </div>

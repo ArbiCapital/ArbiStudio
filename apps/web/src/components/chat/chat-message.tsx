@@ -234,7 +234,22 @@ function ImageToolResult({
                 size="icon"
                 variant="secondary"
                 className="h-7 w-7"
-                onClick={() => window.open(img.url, "_blank")}
+                onClick={async () => {
+                  try {
+                    const response = await fetch(img.url);
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `arbistudio-${model}-${ratio.replace(":", "x")}-${Date.now()}.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  } catch {
+                    window.open(img.url, "_blank");
+                  }
+                }}
               >
                 <Download className="h-3.5 w-3.5" />
               </Button>
