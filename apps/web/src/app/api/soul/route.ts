@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fal } from "@fal-ai/client";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,39 +19,38 @@ export async function POST(req: NextRequest) {
 
     fal.config({ credentials: process.env.FAL_KEY });
 
-    const { name, description, gender, age, style } = await req.json();
+    const { name, description, gender, age, style, numVariants } = await req.json();
 
-    // Generate 4 character variants using Flux Pro with detailed character prompt
-    const characterPrompt = `Professional portrait photography of a ${gender === "Femenino" ? "woman" : gender === "Masculino" ? "man" : "person"}, approximately ${age} years old, ${description}. Style: ${style}. Clean background, professional studio lighting, high detail, 8K resolution, photorealistic. The person should look natural and approachable, suitable for commercial brand imagery.`;
+    const genderText = gender === "Femenino" ? "woman" : gender === "Masculino" ? "man" : "person";
 
-    const results = [];
-    for (let i = 0; i < 4; i++) {
-      const result = await fal.subscribe("fal-ai/flux-pro/v1.1", {
+    const characterPrompt = `Professional portrait photography of a ${genderText}, approximately ${age} years old, ${description}. Style: ${style}. Clean studio background, professional lighting, high detail, 8K resolution, photorealistic, natural and approachable expression, suitable for commercial brand imagery.`;
+
+    const count = Math.min(numVariants || 2, 4); // Default 2, max 4
+
+    // Generate all variants in parallel for speed
+    const promises = Array.from({ length: count }, (_, i) =>
+      fal.subscribe("fal-ai/flux-pro/v1.1", {
         input: {
-          prompt: characterPrompt + ` Variant ${i + 1}, slightly different angle and expression.`,
+          prompt: characterPrompt + (i > 0 ? ` Variation ${i + 1}, different angle and expression.` : ""),
           image_size: "square_hd",
           num_images: 1,
-          seed: Date.now() + i * 1000,
+          seed: Date.now() + i * 7919, // Different seeds
         },
-      });
+      }).then((result) => {
+        const data = result.data as { images: Array<{ url: string; width: number; height: number }> };
+        return data.images?.[0] ? { url: data.images[0].url, width: data.images[0].width, height: data.images[0].height } : null;
+      }).catch(() => null)
+    );
 
-      const data = result.data as { images: Array<{ url: string; width: number; height: number }> };
-      if (data.images?.[0]) {
-        results.push({
-          url: data.images[0].url,
-          width: data.images[0].width,
-          height: data.images[0].height,
-        });
-      }
+    const results = (await Promise.all(promises)).filter(Boolean);
+
+    if (results.length === 0) {
+      return NextResponse.json({ success: false, error: "No se pudieron generar variantes. Verifica tu saldo en fal.ai." }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      character: {
-        name,
-        description,
-        variants: results,
-      },
+      character: { name, description, variants: results },
     });
   } catch (error) {
     return NextResponse.json(

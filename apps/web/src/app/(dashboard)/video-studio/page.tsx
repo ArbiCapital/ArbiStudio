@@ -56,7 +56,7 @@ export default function VideoStudioPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: enhancedPrompt,
-          model: "wan",
+          model: "minimax",
           aspectRatio: "16:9",
         }),
       });

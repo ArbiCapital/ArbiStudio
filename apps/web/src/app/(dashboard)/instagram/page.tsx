@@ -126,34 +126,32 @@ export default function InstagramPage() {
     setSearchLoading(false);
   };
 
-  const handleTranscribe = async (videoUrl: string) => {
+  const handleTranscribe = async (mediaUrl: string) => {
     setTranscribing(true);
     setTranscription(null);
     try {
-      // For IG videos, we use Claude to describe/analyze since we can't directly download
-      const res = await fetch("/api/chat", {
+      const res = await fetch("/api/transcribe-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [{
-            role: "user",
-            content: `Analiza este video de Instagram: ${videoUrl}\n\nDescribe el contenido del video, que se dice, la estructura, los hooks, CTAs y cualquier texto en pantalla. Si es un reel con voz, intenta transcribir lo que se dice.`,
-          }],
-        }),
+        body: JSON.stringify({ videoUrl: mediaUrl, language: "es" }),
       });
-      if (res.ok) {
-        const reader = res.body?.getReader();
-        const decoder = new TextDecoder();
-        let text = "";
-        while (reader) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          text += decoder.decode(value);
+      const data = await res.json();
+      if (data.success) {
+        let result = `📝 Transcripcion (${data.language}, ${Math.round(data.duration)}s):\n\n${data.text}`;
+        if (data.segments?.length > 0) {
+          result += "\n\n⏱ Segmentos:\n";
+          data.segments.forEach((s: { text: string; start: number; end: number }) => {
+            const startMin = Math.floor(s.start / 60);
+            const startSec = Math.floor(s.start % 60);
+            result += `[${startMin}:${String(startSec).padStart(2, "0")}] ${s.text}\n`;
+          });
         }
-        setTranscription(text || "Analisis completado. Abre el video para mas detalles.");
+        setTranscription(result);
+      } else {
+        setTranscription(`Error: ${data.error}`);
       }
     } catch {
-      setTranscription("No se pudo analizar el video.");
+      setTranscription("Error al transcribir el video.");
     }
     setTranscribing(false);
   };
@@ -475,11 +473,11 @@ export default function InstagramPage() {
                     <ExternalLink className="h-3.5 w-3.5" /> Ver en Instagram
                   </Button>
 
-                  {selectedMedia.type === "VIDEO" && (
+                  {selectedMedia.type === "VIDEO" && selectedMedia.mediaUrl && (
                     <Button
                       variant="outline"
                       className="w-full gap-2 text-xs"
-                      onClick={() => handleTranscribe(selectedMedia.permalink)}
+                      onClick={() => handleTranscribe(selectedMedia.mediaUrl)}
                       disabled={transcribing}
                     >
                       {transcribing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
