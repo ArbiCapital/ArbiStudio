@@ -16,6 +16,12 @@ const MODEL_MAP: Record<string, VideoModel> = {
 
 export async function POST(req: NextRequest) {
   try {
+    const { rateLimit, getClientIp } = await import("@/lib/rate-limit");
+    const { success } = rateLimit(`gen-vid:${getClientIp(req)}`, 5, 60_000);
+    if (!success) {
+      return NextResponse.json({ error: "Rate limit: max 5 videos/min" }, { status: 429 });
+    }
+
     const body = await req.json();
     const { prompt, model, imageUrl, duration, aspectRatio } = body as {
       prompt: string;

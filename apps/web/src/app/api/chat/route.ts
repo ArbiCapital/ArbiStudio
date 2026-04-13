@@ -49,6 +49,14 @@ NO muestres el tag [CONTEXT] al usuario. Ignora su existencia en tu respuesta.
 ## RESPONDE SIEMPRE EN ESPANOL. Los prompts de imagen siempre en ingles.`;
 
 export async function POST(req: Request) {
+  // Rate limit: 30 requests per minute per IP
+  const { rateLimit, getClientIp } = await import("@/lib/rate-limit");
+  const ip = getClientIp(req);
+  const { success } = rateLimit(`chat:${ip}`, 30, 60_000);
+  if (!success) {
+    return new Response(JSON.stringify({ error: "Rate limit exceeded" }), { status: 429 });
+  }
+
   const { messages: rawMessages } = await req.json();
 
   // Convert UI messages (parts-based) to model messages (content-based)

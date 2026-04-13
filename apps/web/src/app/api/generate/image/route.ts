@@ -6,6 +6,12 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
+    const { rateLimit, getClientIp } = await import("@/lib/rate-limit");
+    const { success } = rateLimit(`gen-img:${getClientIp(req)}`, 15, 60_000);
+    if (!success) {
+      return NextResponse.json({ error: "Rate limit: max 15 images/min" }, { status: 429 });
+    }
+
     const body = await req.json();
     const { prompt, model, ratio, numImages } = body as {
       prompt: string;

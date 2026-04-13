@@ -4,14 +4,25 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limit + SSRF protection
+    const { rateLimit, getClientIp, isSafeUrl } = await import("@/lib/rate-limit");
+    const ip = getClientIp(req);
+    const { success } = rateLimit(`scrape:${ip}`, 10, 60_000);
+    if (!success) {
+      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+    }
+
     const { url } = await req.json();
 
     if (!url) {
       return NextResponse.json({ error: "URL is required" }, { status: 400 });
     }
 
-    // Simple scraping using fetch + HTML parsing
-    // In production, use Firecrawl or Apify for deep scraping
+    // SSRF protection: block internal/private URLs
+    if (!isSafeUrl(url)) {
+      return NextResponse.json({ error: "URL not allowed" }, { status: 403 });
+    }
+
     const response = await fetch(url, {
       headers: {
         "User-Agent":
