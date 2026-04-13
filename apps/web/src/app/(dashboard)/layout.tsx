@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/chat", label: "Chat", icon: MessageSquare },
+  { href: "/video-studio", label: "Video Studio", icon: Film },
   { href: "/library", label: "Libreria", icon: ImageIcon },
   { href: "/soul-builder", label: "Personajes", icon: Users },
   { href: "/campaigns", label: "Campanas", icon: BarChart3 },
