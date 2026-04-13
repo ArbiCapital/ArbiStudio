@@ -35,6 +35,7 @@ const NAV_ITEMS = [
   { href: "/library", label: "Libreria", icon: ImageIcon },
   { href: "/soul-builder", label: "Personajes", icon: Users },
   { href: "/lipsync", label: "Lipsync", icon: Mic },
+  { href: "/instagram", label: "Instagram", icon: ImageIcon },
   { href: "/campaigns", label: "Campanas", icon: BarChart3 },
   { href: "/competitors", label: "Competencia", icon: Search },
   { href: "/strategy", label: "Estrategia", icon: Calendar },
