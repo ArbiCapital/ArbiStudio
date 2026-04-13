@@ -18,6 +18,7 @@ import {
   Users,
   Mic,
   LogOut,
+  LayoutGrid,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -190,8 +191,18 @@ export default function DashboardLayout({
           </>
         )}
 
-        {/* Logout */}
-        <div className="mt-auto shrink-0 border-t border-border p-3">
+        {/* Hub + Logout */}
+        <div className="mt-auto shrink-0 border-t border-border p-3 space-y-1">
+          <a
+            href="https://hub.arbicapitaluae.com"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground",
+              collapsed && "justify-center px-0"
+            )}
+          >
+            <LayoutGrid className="h-4 w-4" />
+            {!collapsed && "ArbiCapital Hub"}
+          </a>
           <Button
             variant="ghost"
             className={cn(
