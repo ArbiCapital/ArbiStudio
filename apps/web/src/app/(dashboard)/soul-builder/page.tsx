@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Plus,
   User,
@@ -9,6 +9,9 @@ import {
   Trash2,
   Loader2,
   Check,
+  Image as ImageIcon,
+  Type,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +34,7 @@ interface SoulCharacter {
   variants: { url: string; width: number; height: number }[];
   selectedVariant: number;
   status: "generating" | "ready";
+  fromPhoto?: boolean;
 }
 
 const STORAGE_KEY = "arbistudio-characters";
@@ -47,18 +51,94 @@ function saveCharacters(chars: SoulCharacter[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(chars));
 }
 
+type CreationMode = "photo" | "text";
+
 export default function SoulBuilderPage() {
   const [characters, setCharacters] = useState<SoulCharacter[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<CreationMode>("photo");
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [newChar, setNewChar] = useState({
     name: "", description: "", gender: "Femenino", age: 28, style: "Professional",
   });
 
   useEffect(() => { setCharacters(loadCharacters()); }, []);
 
-  const handleCreate = async () => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Solo se permiten imagenes (JPG, PNG, WebP)");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("La imagen no puede superar 10MB");
+      return;
+    }
+    setPhotoFile(file);
+    setError(null);
+    const reader = new FileReader();
+    reader.onload = () => setPhotoPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const clearPhoto = () => {
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleCreateFromPhoto = async () => {
+    if (!photoFile || !newChar.name) return;
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("image", photoFile);
+      formData.append("name", newChar.name);
+      formData.append("style", newChar.style);
+      formData.append("numVariants", "4");
+
+      const res = await fetch("/api/soul", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        const character: SoulCharacter = {
+          id: Date.now().toString(),
+          name: newChar.name,
+          description: "Generado desde foto de referencia",
+          gender: newChar.gender,
+          age: newChar.age,
+          style: newChar.style,
+          variants: data.character.variants,
+          selectedVariant: 0,
+          status: "ready",
+          fromPhoto: true,
+        };
+        const updated = [...characters, character];
+        setCharacters(updated);
+        saveCharacters(updated);
+        resetForm();
+      } else {
+        setError(data.error || "Error generando personaje desde foto");
+      }
+    } catch {
+      setError("Error de conexion");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleCreateFromText = async () => {
     if (!newChar.name || !newChar.description) return;
     setIsGenerating(true);
     setError(null);
@@ -82,12 +162,12 @@ export default function SoulBuilderPage() {
           variants: data.character.variants,
           selectedVariant: 0,
           status: "ready",
+          fromPhoto: false,
         };
         const updated = [...characters, character];
         setCharacters(updated);
         saveCharacters(updated);
-        setIsCreating(false);
-        setNewChar({ name: "", description: "", gender: "Femenino", age: 28, style: "Professional" });
+        resetForm();
       } else {
         setError(data.error || "Error generando personaje");
       }
@@ -96,6 +176,13 @@ export default function SoulBuilderPage() {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const resetForm = () => {
+    setIsCreating(false);
+    setNewChar({ name: "", description: "", gender: "Femenino", age: 28, style: "Professional" });
+    clearPhoto();
+    setError(null);
   };
 
   const handleDelete = (id: string) => {
@@ -112,6 +199,10 @@ export default function SoulBuilderPage() {
     saveCharacters(updated);
   };
 
+  const canSubmit = mode === "photo"
+    ? !!newChar.name && !!photoFile
+    : !!newChar.name && !!newChar.description;
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
@@ -121,7 +212,7 @@ export default function SoulBuilderPage() {
             {characters.length} personaje{characters.length !== 1 ? "s" : ""} — Usa @nombre en el chat para incluirlos
           </p>
         </div>
-        <Dialog open={isCreating} onOpenChange={setIsCreating}>
+        <Dialog open={isCreating} onOpenChange={(open) => { if (!open) resetForm(); else setIsCreating(true); }}>
           <Button className="gap-2" onClick={() => setIsCreating(true)}>
             <Plus className="h-4 w-4" />
             Nuevo personaje
@@ -130,72 +221,156 @@ export default function SoulBuilderPage() {
             <DialogHeader>
               <DialogTitle>Crear personaje con IA</DialogTitle>
             </DialogHeader>
+
+            {/* Mode selector */}
+            <div className="flex gap-2 rounded-lg border border-border p-1 bg-muted/30">
+              <button
+                onClick={() => setMode("photo")}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+                  mode === "photo"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <ImageIcon className="h-4 w-4" />
+                Desde foto
+              </button>
+              <button
+                onClick={() => setMode("text")}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+                  mode === "text"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Type className="h-4 w-4" />
+                Desde texto
+              </button>
+            </div>
+
             <div className="space-y-4">
               <Input
                 placeholder="Nombre (ej: Sofia, Marco)"
                 value={newChar.name}
                 onChange={(e) => setNewChar({ ...newChar, name: e.target.value })}
               />
-              <Textarea
-                placeholder="Descripcion detallada: apariencia fisica, pelo, ojos, ropa, expresion..."
-                value={newChar.description}
-                onChange={(e) => setNewChar({ ...newChar, description: e.target.value })}
-                rows={3}
-              />
-              <div className="grid grid-cols-3 gap-3">
+
+              {mode === "photo" ? (
+                /* Photo upload area */
                 <div>
-                  <label className="mb-1 block text-xs text-muted-foreground">Genero</label>
-                  <select
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                    value={newChar.gender}
-                    onChange={(e) => setNewChar({ ...newChar, gender: e.target.value })}
-                  >
-                    <option>Femenino</option>
-                    <option>Masculino</option>
-                    <option>No binario</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-muted-foreground">Edad</label>
-                  <Input
-                    type="number"
-                    value={newChar.age}
-                    onChange={(e) => setNewChar({ ...newChar, age: parseInt(e.target.value) || 28 })}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleFileSelect}
+                    className="hidden"
                   />
+                  {photoPreview ? (
+                    <div className="relative">
+                      <img
+                        src={photoPreview}
+                        alt="Preview"
+                        className="h-48 w-full rounded-lg border border-border object-cover"
+                      />
+                      <button
+                        onClick={clearPhoto}
+                        className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80 transition-colors"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                      <p className="mt-2 text-xs text-muted-foreground text-center">
+                        La IA generara 4 variantes profesionales manteniendo la identidad facial
+                      </p>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex h-48 w-full flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-border bg-muted/20 transition-colors hover:border-primary/50 hover:bg-muted/40"
+                    >
+                      <div className="rounded-full bg-primary/10 p-3">
+                        <Upload className="h-6 w-6 text-primary" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium">Sube una foto del personaje</p>
+                        <p className="text-xs text-muted-foreground">JPG, PNG o WebP — max 10MB</p>
+                      </div>
+                    </button>
+                  )}
                 </div>
-                <div>
-                  <label className="mb-1 block text-xs text-muted-foreground">Estilo</label>
-                  <select
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                    value={newChar.style}
-                    onChange={(e) => setNewChar({ ...newChar, style: e.target.value })}
-                  >
-                    <option>Professional</option>
-                    <option>Casual</option>
-                    <option>Streetwear</option>
-                    <option>Luxury</option>
-                    <option>Sporty</option>
-                    <option>Creative</option>
-                  </select>
+              ) : (
+                /* Text description */
+                <>
+                  <Textarea
+                    placeholder="Descripcion detallada: apariencia fisica, pelo, ojos, ropa, expresion..."
+                    value={newChar.description}
+                    onChange={(e) => setNewChar({ ...newChar, description: e.target.value })}
+                    rows={3}
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs text-muted-foreground">Genero</label>
+                      <select
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                        value={newChar.gender}
+                        onChange={(e) => setNewChar({ ...newChar, gender: e.target.value })}
+                      >
+                        <option>Femenino</option>
+                        <option>Masculino</option>
+                        <option>No binario</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-muted-foreground">Edad</label>
+                      <Input
+                        type="number"
+                        value={newChar.age}
+                        onChange={(e) => setNewChar({ ...newChar, age: parseInt(e.target.value) || 28 })}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Style selector — shared between modes */}
+              <div>
+                <label className="mb-1 block text-xs text-muted-foreground">Estilo visual</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {["Professional", "Casual", "Streetwear", "Luxury", "Sporty", "Creative"].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setNewChar({ ...newChar, style: s })}
+                      className={`rounded-lg border px-3 py-2 text-sm transition-all ${
+                        newChar.style === s
+                          ? "border-primary bg-primary/10 text-primary font-medium"
+                          : "border-border text-muted-foreground hover:border-primary/30"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
                 </div>
               </div>
 
               {error && <p className="text-sm text-destructive">{error}</p>}
 
               <Button
-                onClick={handleCreate}
+                onClick={mode === "photo" ? handleCreateFromPhoto : handleCreateFromText}
                 className="w-full gap-2"
-                disabled={!newChar.name || !newChar.description || isGenerating}
+                disabled={!canSubmit || isGenerating}
               >
                 {isGenerating ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Generando 4 variantes con IA...</>
+                ) : mode === "photo" ? (
+                  <><Upload className="h-4 w-4" /> Generar desde foto</>
                 ) : (
-                  <><Sparkles className="h-4 w-4" /> Generar personaje</>
+                  <><Sparkles className="h-4 w-4" /> Generar desde texto</>
                 )}
               </Button>
               {isGenerating && (
                 <p className="text-center text-xs text-muted-foreground">
-                  Esto puede tardar 30-60 segundos (4 imagenes con Flux Pro)
+                  {mode === "photo"
+                    ? "Flux Kontext esta analizando la foto y generando variantes (30-90s)"
+                    : "Esto puede tardar 30-60 segundos (4 imagenes con Flux Pro)"}
                 </p>
               )}
             </div>
@@ -244,9 +419,13 @@ export default function SoulBuilderPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-semibold">@{char.name}</h3>
-                    <p className="text-xs text-muted-foreground">{char.gender}, {char.age} anos · {char.style}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {char.fromPhoto ? "Desde foto" : `${char.gender}, ${char.age} anos`} · {char.style}
+                    </p>
                   </div>
-                  <Badge variant="default" className="text-[10px]">Listo</Badge>
+                  <Badge variant="default" className="text-[10px]">
+                    {char.fromPhoto ? "Foto" : "IA"}
+                  </Badge>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{char.description}</p>
                 <div className="mt-3 flex gap-2">
@@ -270,8 +449,8 @@ export default function SoulBuilderPage() {
             <div>
               <User className="mx-auto mb-4 h-12 w-12 text-muted-foreground/30" />
               <h3 className="text-lg font-semibold">Sin personajes</h3>
-              <p className="mb-4 text-sm text-muted-foreground">
-                Crea tu primer personaje y ArbiStudio generara 4 variantes para elegir
+              <p className="mb-4 max-w-sm text-sm text-muted-foreground">
+                Sube una foto real o describe un personaje ficticio. La IA generara 4 variantes profesionales para usar en videos y contenido.
               </p>
               <Button onClick={() => setIsCreating(true)} className="gap-2">
                 <Plus className="h-4 w-4" />
