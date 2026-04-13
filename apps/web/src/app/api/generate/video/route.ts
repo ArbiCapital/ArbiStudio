@@ -4,8 +4,8 @@ import { fal } from "@fal-ai/client";
 export const maxDuration = 300; // 5 min — video generation is slow
 
 const MODEL_MAP: Record<string, string> = {
-  "minimax": "fal-ai/minimax-video/text-to-video",
-  "wan": "fal-ai/wan/v2.1/text-to-video",
+  "minimax": "fal-ai/minimax-video",
+  "wan": "fal-ai/wan/v2.1",
   "hunyuan": "fal-ai/hunyuan-video",
 };
 
