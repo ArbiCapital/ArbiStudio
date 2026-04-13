@@ -35,16 +35,25 @@ export default function VideoStudioPage() {
   const [selectedLens, setSelectedLens] = useState("50mm-portrait");
   const [selectedGrading, setSelectedGrading] = useState("none");
   const [selectedModel, setSelectedModel] = useState("kling");
+  const [selectedDuration, setSelectedDuration] = useState("10");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
 
   const VIDEO_MODELS = [
-    { id: "kling", name: "Kling 2.1", desc: "El mas realista — ideal para anuncios", cost: "~$0.40" },
-    { id: "runway", name: "Runway Gen-3", desc: "Cinematografico, image-to-video", cost: "~$0.50" },
-    { id: "minimax", name: "Minimax", desc: "Rapido y economico", cost: "~$0.10" },
-    { id: "wan", name: "Wan 2.1", desc: "Economico, calidad basica", cost: "~$0.08" },
+    { id: "kling", name: "Kling 2.1", desc: "El mas realista — ideal para anuncios", cost: "~$1.40/10s", maxDuration: 10 },
+    { id: "kling-v3", name: "Kling 3.0", desc: "Ultima version — hasta 15s, audio nativo", cost: "~$2.10/15s", maxDuration: 15 },
+    { id: "runway", name: "Runway Gen-3", desc: "Cinematografico, text-to-video", cost: "~$0.50/5s", maxDuration: 10 },
+    { id: "minimax", name: "Minimax", desc: "Rapido y economico", cost: "~$0.10/5s", maxDuration: 6 },
+    { id: "wan", name: "Wan 2.1", desc: "Economico, calidad basica", cost: "~$0.08/5s", maxDuration: 5 },
   ];
+
+  const currentModel = VIDEO_MODELS.find((m) => m.id === selectedModel);
+  const DURATIONS = [
+    { value: "5", label: "5s" },
+    { value: "10", label: "10s" },
+    { value: "15", label: "15s" },
+  ].filter((d) => parseInt(d.value) <= (currentModel?.maxDuration || 10));
 
   const handleGenerate = async () => {
     if (!prompt) return;
@@ -66,6 +75,7 @@ export default function VideoStudioPage() {
           prompt: enhancedPrompt,
           model: selectedModel,
           aspectRatio: "16:9",
+          duration: selectedDuration,
         }),
       });
       const data = await res.json();
@@ -176,8 +186,23 @@ export default function VideoStudioPage() {
                   {m.name}
                 </button>
               ))}
+              <span className="ml-2 text-xs text-muted-foreground">|</span>
+              <span className="text-xs font-medium text-muted-foreground">Duracion:</span>
+              {DURATIONS.map((d) => (
+                <button
+                  key={d.value}
+                  onClick={() => setSelectedDuration(d.value)}
+                  className={`rounded-full px-3 py-1 text-xs transition-all ${
+                    selectedDuration === d.value
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {d.label}
+                </button>
+              ))}
               <span className="ml-auto text-[10px] text-muted-foreground">
-                {VIDEO_MODELS.find((m) => m.id === selectedModel)?.desc} ({VIDEO_MODELS.find((m) => m.id === selectedModel)?.cost})
+                {currentModel?.desc} ({currentModel?.cost})
               </span>
             </div>
 

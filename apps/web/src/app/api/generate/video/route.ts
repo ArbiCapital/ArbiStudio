@@ -5,6 +5,7 @@ export const maxDuration = 300; // 5 min — video generation is slow
 
 const MODEL_MAP: Record<string, string> = {
   "kling": "fal-ai/kling-video/v2.1/master/text-to-video",
+  "kling-v3": "fal-ai/kling-video/v3/standard/text-to-video",
   "runway": "fal-ai/runway-gen3/turbo/text-to-video",
   "minimax": "fal-ai/minimax-video",
   "wan": "fal-ai/wan/v2.1",
@@ -21,10 +22,11 @@ export async function POST(req: NextRequest) {
     if (!success) return NextResponse.json({ error: "Rate limit: max 5 videos/min" }, { status: 429 });
 
     const body = await req.json();
-    const { prompt, model, aspectRatio } = body as {
+    const { prompt, model, aspectRatio, duration } = body as {
       prompt: string;
       model?: string;
       aspectRatio?: string;
+      duration?: string;
     };
 
     if (!prompt) return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
@@ -38,6 +40,7 @@ export async function POST(req: NextRequest) {
       input: {
         prompt,
         ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
+        ...(duration ? { duration: duration } : {}),
       },
       logs: true,
       pollInterval: 5000,
