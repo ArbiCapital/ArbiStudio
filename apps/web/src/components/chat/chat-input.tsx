@@ -111,6 +111,14 @@ export function ChatInput({ onSubmit, isLoading }: ChatInputProps) {
           className="hidden"
           accept="image/*,video/*,.pdf"
           multiple
+          onChange={(e) => {
+            const files = e.target.files;
+            if (files && files.length > 0) {
+              const names = Array.from(files).map((f) => f.name).join(", ");
+              setInput((prev) => prev + `\n[Archivos adjuntos: ${names}]`);
+            }
+            e.target.value = "";
+          }}
         />
       </div>
     </div>

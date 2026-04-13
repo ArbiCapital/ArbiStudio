@@ -53,7 +53,7 @@ const QUICK_ACTIONS = [
 
 export default function ChatPageWrapper() {
   return (
-    <Suspense fallback={<div className="flex h-full items-center justify-center"><Sparkles className="h-8 w-8 animate-pulse text-primary" /></div>}>
+    <Suspense fallback={<div className="flex h-full flex-col items-center justify-center gap-2"><Sparkles className="h-8 w-8 animate-pulse text-primary" /><p className="text-sm text-muted-foreground">Cargando...</p></div>}>
       <ChatPage />
     </Suspense>
   );

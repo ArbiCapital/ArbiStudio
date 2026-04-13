@@ -70,7 +70,7 @@ export default function LipsyncPage() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left — Script + controls */}
-        <div className="flex w-96 flex-col border-r border-border p-4">
+        <div className="flex w-full flex-col border-r border-border p-4 md:w-96">
           <div className="mb-4">
             <label className="mb-1 block text-sm font-medium">Guion</label>
             <Textarea

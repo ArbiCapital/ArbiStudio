@@ -183,7 +183,7 @@ export default function StrategyPage() {
           {pillars.length > 0 && (
             <div className="mt-6 rounded-xl border border-border bg-card p-5">
               <h3 className="mb-3 text-sm font-semibold">Pilares de contenido</h3>
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 {pillars.map((pillar, i) => (
                   <div key={i} className={`rounded-lg p-3 text-center ${PILLAR_COLORS[i % PILLAR_COLORS.length]}`}>
                     <p className="text-2xl font-bold">{pillar.percentage}%</p>

@@ -195,7 +195,7 @@ export default function VideoStudioPage() {
       </div>
 
       {/* Right panel — Cinema Studio controls */}
-      <div className="w-80 border-l border-border bg-muted/20">
+      <div className="hidden w-80 border-l border-border bg-muted/20 lg:block">
         <Tabs
           value={activeTab}
           onValueChange={setActiveTab}

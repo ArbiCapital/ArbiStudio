@@ -94,12 +94,10 @@ export default function SoulBuilderPage() {
           </p>
         </div>
         <Dialog open={isCreating} onOpenChange={setIsCreating}>
-          <DialogTrigger>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Nuevo personaje
-            </Button>
-          </DialogTrigger>
+          <Button className="gap-2" onClick={() => setIsCreating(true)}>
+            <Plus className="h-4 w-4" />
+            Nuevo personaje
+          </Button>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Crear personaje</DialogTitle>

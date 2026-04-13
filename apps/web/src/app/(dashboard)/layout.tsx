@@ -67,7 +67,9 @@ export default function DashboardLayout({
       <aside
         className={cn(
           "flex flex-col border-r border-border bg-sidebar transition-all duration-300",
-          collapsed ? "w-16" : "w-64"
+          collapsed ? "w-16" : "w-64",
+          "max-md:absolute max-md:z-50 max-md:h-full",
+          collapsed && "max-md:w-0 max-md:border-0 max-md:overflow-hidden"
         )}
       >
         {/* Logo */}
@@ -85,6 +87,7 @@ export default function DashboardLayout({
             size="icon"
             className={cn("ml-auto h-8 w-8", collapsed && "ml-0")}
             onClick={() => setCollapsed(!collapsed)}
+            aria-label={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
           >
             {collapsed ? (
               <PanelLeft className="h-4 w-4" />

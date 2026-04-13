@@ -142,7 +142,7 @@ export default function CompetitorsPage() {
             </div>
 
             {/* KPIs */}
-            <div className="mb-4 grid grid-cols-4 gap-4">
+            <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
               <div className="rounded-lg bg-muted/30 p-3 text-center">
                 <p className="text-[10px] text-muted-foreground">Posts/semana</p>
                 <p className="text-xl font-bold">{analysis.postsPerWeek}</p>
