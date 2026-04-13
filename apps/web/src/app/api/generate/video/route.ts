@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     // Poll until complete (respects maxDuration timeout)
     let status = await fal.queue.status(selectedModel, { requestId: request_id, logs: true });
     while (status.status !== "COMPLETED") {
-      if (status.status === "FAILED") {
+      if ((status.status as string) === "FAILED") {
         return NextResponse.json({
           success: false,
           error: "La generacion del video fallo. Intenta con otro modelo o prompt.",
