@@ -34,28 +34,15 @@ export async function POST(req: NextRequest) {
 
     const selectedModel = MODEL_MAP[model || "kling"] || MODEL_MAP.kling;
 
-    // Use queue API for reliable execution across all models
-    const { request_id } = await fal.queue.submit(selectedModel, {
+    const result = await fal.subscribe(selectedModel, {
       input: {
         prompt,
         ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
       },
+      logs: true,
+      pollInterval: 5000,
     });
 
-    // Poll until complete (respects maxDuration timeout)
-    let status = await fal.queue.status(selectedModel, { requestId: request_id, logs: true });
-    while (status.status !== "COMPLETED") {
-      if ((status.status as string) === "FAILED") {
-        return NextResponse.json({
-          success: false,
-          error: "La generacion del video fallo. Intenta con otro modelo o prompt.",
-        }, { status: 500 });
-      }
-      await new Promise((r) => setTimeout(r, 3000));
-      status = await fal.queue.status(selectedModel, { requestId: request_id, logs: true });
-    }
-
-    const result = await fal.queue.result(selectedModel, { requestId: request_id });
     const data = result.data as Record<string, unknown>;
 
     // Extract video URL — different models use different response shapes
