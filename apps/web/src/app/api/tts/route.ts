@@ -31,7 +31,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    const selectedVoice = voiceId || VOICE_MAP["isabella-es"] || "LcfcDJNlP1WERjJ8eyKu";
+    // Resolve voice: check map first, then use as raw ElevenLabs ID (for custom voices)
+    const selectedVoice = VOICE_MAP[voiceId] || voiceId || "LcfcDJNlP1WERjJ8eyKu";
 
     const response = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${selectedVoice}`,

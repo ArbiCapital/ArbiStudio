@@ -1,12 +1,27 @@
 "use client";
 
-import { useState } from "react";
-import { Mic, Play, Loader2, Download, Volume2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Mic, Play, Loader2, Download, Volume2, Plus, X, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
-const VOICES = [
+interface Voice {
+  id: string;
+  name: string;
+  lang: string;
+  gender: string;
+  custom?: boolean;
+}
+
+const DEFAULT_VOICES: Voice[] = [
   { id: "isabella-es", name: "Isabella", lang: "ES", gender: "Mujer" },
   { id: "carlos-es", name: "Carlos", lang: "ES", gender: "Hombre" },
   { id: "aria-en", name: "Aria", lang: "EN", gender: "Woman" },
@@ -21,6 +36,20 @@ const EMOTIONS = [
   { id: "confident", label: "Confiado" },
 ];
 
+const CUSTOM_VOICES_KEY = "arbistudio-custom-voices";
+
+function loadCustomVoices(): Voice[] {
+  if (typeof window === "undefined") return [];
+  try { return JSON.parse(localStorage.getItem(CUSTOM_VOICES_KEY) || "[]"); }
+  catch { return []; }
+}
+
+function saveCustomVoices(voices: Voice[]) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(CUSTOM_VOICES_KEY, JSON.stringify(voices));
+  }
+}
+
 export default function LipsyncPage() {
   const [script, setScript] = useState("");
   const [selectedVoice, setSelectedVoice] = useState("isabella-es");
@@ -28,6 +57,14 @@ export default function LipsyncPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [customVoices, setCustomVoices] = useState<Voice[]>([]);
+  const [showAddVoice, setShowAddVoice] = useState(false);
+  const [isCloning, setIsCloning] = useState(false);
+  const [newVoice, setNewVoice] = useState({ name: "", elevenlabsId: "", lang: "ES", gender: "Mujer" });
+
+  useEffect(() => { setCustomVoices(loadCustomVoices()); }, []);
+
+  const allVoices = [...DEFAULT_VOICES, ...customVoices];
 
   const handleGenerate = async () => {
     if (!script) return;
@@ -57,6 +94,70 @@ export default function LipsyncPage() {
     }
   };
 
+  const handleCloneVoice = async (file: File) => {
+    if (!newVoice.name) return;
+    setIsCloning(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("files", file);
+      formData.append("name", newVoice.name);
+
+      const res = await fetch("/api/voice-clone", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        const voice: Voice = {
+          id: data.voiceId,
+          name: newVoice.name,
+          lang: newVoice.lang,
+          gender: newVoice.gender,
+          custom: true,
+        };
+        const updated = [...customVoices, voice];
+        setCustomVoices(updated);
+        saveCustomVoices(updated);
+        setSelectedVoice(data.voiceId);
+        setShowAddVoice(false);
+        setNewVoice({ name: "", elevenlabsId: "", lang: "ES", gender: "Mujer" });
+      } else {
+        setError(data.error || "Error clonando voz");
+      }
+    } catch {
+      setError("Error de conexion al clonar voz");
+    } finally {
+      setIsCloning(false);
+    }
+  };
+
+  const handleAddManualVoice = () => {
+    if (!newVoice.name || !newVoice.elevenlabsId) return;
+    const voice: Voice = {
+      id: newVoice.elevenlabsId,
+      name: newVoice.name,
+      lang: newVoice.lang,
+      gender: newVoice.gender,
+      custom: true,
+    };
+    const updated = [...customVoices, voice];
+    setCustomVoices(updated);
+    saveCustomVoices(updated);
+    setSelectedVoice(newVoice.elevenlabsId);
+    setShowAddVoice(false);
+    setNewVoice({ name: "", elevenlabsId: "", lang: "ES", gender: "Mujer" });
+  };
+
+  const handleDeleteCustomVoice = (voiceId: string) => {
+    const updated = customVoices.filter((v) => v.id !== voiceId);
+    setCustomVoices(updated);
+    saveCustomVoices(updated);
+    if (selectedVoice === voiceId) setSelectedVoice("isabella-es");
+  };
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
@@ -84,13 +185,22 @@ export default function LipsyncPage() {
           </div>
 
           <div className="mb-4">
-            <label className="mb-2 block text-sm font-medium">Voz</label>
+            <div className="mb-2 flex items-center justify-between">
+              <label className="text-sm font-medium">Voz</label>
+              <button
+                onClick={() => setShowAddVoice(true)}
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-primary hover:bg-primary/10 transition-colors"
+              >
+                <Plus className="h-3 w-3" />
+                Anadir voz
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-2">
-              {VOICES.map((voice) => (
+              {allVoices.map((voice) => (
                 <button
                   key={voice.id}
                   onClick={() => setSelectedVoice(voice.id)}
-                  className={`rounded-lg border p-2 text-left text-xs transition-all ${
+                  className={`group relative rounded-lg border p-2 text-left text-xs transition-all ${
                     selectedVoice === voice.id
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border hover:border-primary/30"
@@ -98,6 +208,17 @@ export default function LipsyncPage() {
                 >
                   <p className="font-medium">{voice.name}</p>
                   <p className="text-muted-foreground">{voice.gender} · {voice.lang}</p>
+                  {voice.custom && (
+                    <>
+                      <Badge variant="outline" className="mt-1 text-[9px]">Custom</Badge>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteCustomVoice(voice.id); }}
+                        className="absolute right-1 top-1 hidden rounded-full p-0.5 text-muted-foreground hover:text-destructive group-hover:block"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </>
+                  )}
                 </button>
               ))}
             </div>
@@ -142,7 +263,7 @@ export default function LipsyncPage() {
               <div>
                 <h3 className="text-lg font-semibold">Voiceover generado</h3>
                 <div className="mt-2 flex justify-center gap-2">
-                  <Badge variant="secondary">{VOICES.find((v) => v.id === selectedVoice)?.name}</Badge>
+                  <Badge variant="secondary">{allVoices.find((v) => v.id === selectedVoice)?.name}</Badge>
                   <Badge variant="outline">{selectedEmotion}</Badge>
                 </div>
               </div>
@@ -188,6 +309,95 @@ export default function LipsyncPage() {
           )}
         </div>
       </div>
+
+      {/* Add Voice Dialog */}
+      <Dialog open={showAddVoice} onOpenChange={setShowAddVoice}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Anadir voz personalizada</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              placeholder="Nombre de la voz (ej: Mi voz, Voz cliente)"
+              value={newVoice.name}
+              onChange={(e) => setNewVoice({ ...newVoice, name: e.target.value })}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs text-muted-foreground">Idioma</label>
+                <select
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  value={newVoice.lang}
+                  onChange={(e) => setNewVoice({ ...newVoice, lang: e.target.value })}
+                >
+                  <option value="ES">Espanol</option>
+                  <option value="EN">English</option>
+                  <option value="AR">Arabic</option>
+                  <option value="FR">French</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-muted-foreground">Genero</label>
+                <select
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  value={newVoice.gender}
+                  onChange={(e) => setNewVoice({ ...newVoice, gender: e.target.value })}
+                >
+                  <option>Mujer</option>
+                  <option>Hombre</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border p-3 space-y-3">
+              <p className="text-xs font-medium">Opcion 1: Clonar voz con audio</p>
+              <p className="text-xs text-muted-foreground">
+                Sube un audio claro de al menos 30 segundos para clonar la voz
+              </p>
+              <input
+                type="file"
+                accept="audio/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file && newVoice.name) handleCloneVoice(file);
+                }}
+                className="w-full text-xs file:mr-2 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-xs file:text-primary"
+                disabled={!newVoice.name || isCloning}
+              />
+              {isCloning && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Clonando voz...
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-border p-3 space-y-3">
+              <p className="text-xs font-medium">Opcion 2: Usar ID de ElevenLabs</p>
+              <p className="text-xs text-muted-foreground">
+                Si ya tienes una voz en ElevenLabs, pega su Voice ID aqui
+              </p>
+              <Input
+                placeholder="Voice ID (ej: LcfcDJNlP1WERjJ8eyKu)"
+                value={newVoice.elevenlabsId}
+                onChange={(e) => setNewVoice({ ...newVoice, elevenlabsId: e.target.value })}
+                className="text-sm"
+              />
+              <Button
+                onClick={handleAddManualVoice}
+                disabled={!newVoice.name || !newVoice.elevenlabsId}
+                className="w-full gap-2"
+                size="sm"
+              >
+                <Plus className="h-3 w-3" />
+                Anadir voz
+              </Button>
+            </div>
+
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
