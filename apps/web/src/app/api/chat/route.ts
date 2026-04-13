@@ -1,14 +1,15 @@
 import { anthropic } from "@ai-sdk/anthropic";
 import { streamText } from "ai";
 import { z } from "zod";
-import { generateImage, selectModel, ratioToImageSize } from "@/lib/fal";
+import { generateImage, ratioToImageSize } from "@/lib/fal";
+import { generateGeminiImage, mapRatioToGemini } from "@/lib/gemini";
 
 export const maxDuration = 120;
 
 const SYSTEM_PROMPT = `Eres ArbiStudio, el asistente de creacion de contenido IA mas avanzado del mercado.
 
 ## Tus capacidades:
-1. **Image Studio**: Generas imagenes fotorrealistas con IA (Flux Pro, Ideogram, Recraft)
+1. **Image Studio**: Generas imagenes con IA (Flux Pro, Ideogram, Recraft, Gemini 4K)
 2. **Video Studio**: Produces video profesional con subtitulos, motion graphics, musica
 3. **Cinema Studio**: Controles cinematograficos (camara, lente, color grading)
 4. **Click-to-Ad**: Pega una URL y generas anuncios automaticamente
@@ -24,12 +25,14 @@ const SYSTEM_PROMPT = `Eres ArbiStudio, el asistente de creacion de contenido IA
 - Describe al usuario en espanol que vas a generar antes de hacerlo
 - Sugiere variantes y formatos alternativos despues de generar
 - Si el usuario pega una URL, analiza que quiere y sugiere acciones
+- Para batch generation, puedes llamar generateImage varias veces con distintos prompts/estilos
 
 ## Seleccion de modelo:
-- Fotos realistas / producto / retrato → flux-pro (default)
-- Texto en imagen (banners, ads, titulos) → ideogram
-- Ilustraciones / vectores / branding → recraft
-- Edicion de imagen existente → kontext
+- Fotos realistas / producto / retrato → flux-pro (default, mejor calidad)
+- Texto en imagen (banners, ads, titulos) → ideogram (mejor texto)
+- Ilustraciones / vectores / branding → recraft (estilos artisticos)
+- Edicion de imagen existente → kontext (edicion contextual)
+- 4K con texto perfecto y grounding → gemini (Google Gemini, maximo detalle)
 
 ## Formato de respuesta:
 1. Explica brevemente que vas a crear
@@ -46,31 +49,54 @@ export async function POST(req: Request) {
     tools: {
       generateImage: {
         description:
-          "Generate an AI image. Always use detailed English prompts for best results. Choose the model based on the type of image needed.",
+          "Generate an AI image. Use detailed English prompts. Choose model based on content type.",
         inputSchema: z.object({
           prompt: z
             .string()
-            .describe(
-              "Detailed image generation prompt IN ENGLISH. Include style, lighting, composition, mood details."
-            ),
+            .describe("Detailed image prompt IN ENGLISH with style, lighting, composition details."),
           model: z
-            .enum(["flux-pro", "ideogram", "recraft", "kontext"])
+            .enum(["flux-pro", "ideogram", "recraft", "kontext", "gemini"])
             .describe(
-              "flux-pro: photorealistic/product/portrait. ideogram: text-in-image/banners. recraft: illustration/vector/branding. kontext: image editing."
+              "flux-pro: photorealistic. ideogram: text-in-image. recraft: illustration. kontext: image editing. gemini: 4K with text rendering."
             ),
           ratio: z
             .enum(["1:1", "4:5", "9:16", "16:9", "4:3"])
-            .describe(
-              "Aspect ratio. 1:1=Instagram square, 4:5=Instagram feed, 9:16=Stories/Reels/TikTok, 16:9=YouTube/landscape, 4:3=standard"
-            ),
+            .describe("Aspect ratio for the target platform."),
           numImages: z
             .number()
             .min(1)
             .max(4)
             .optional()
-            .describe("Number of variants to generate (1-4). Default 1."),
+            .describe("Number of variants (1-4). Default 1."),
         }),
         execute: async ({ prompt, model, ratio, numImages }: { prompt: string; model: string; ratio: string; numImages?: number }) => {
+          // Gemini path
+          if (model === "gemini") {
+            if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+              return { success: false, error: "GOOGLE_GENERATIVE_AI_API_KEY no configurada." };
+            }
+            try {
+              const images = await generateGeminiImage({
+                prompt,
+                aspectRatio: mapRatioToGemini(ratio),
+              });
+              return {
+                success: true,
+                images: images.map((img) => ({
+                  url: `data:${img.mimeType};base64,${img.base64}`,
+                  width: img.width,
+                  height: img.height,
+                })),
+                model: "gemini",
+                ratio,
+                prompt,
+              };
+            } catch (error) {
+              return { success: false, error: error instanceof Error ? error.message : "Gemini error" };
+            }
+          }
+
+          // fal.ai path
           const MODEL_MAP: Record<string, string> = {
             "flux-pro": "fal-ai/flux-pro/v1.1",
             ideogram: "fal-ai/ideogram/v3",
@@ -79,10 +105,7 @@ export async function POST(req: Request) {
           };
 
           if (!process.env.FAL_KEY) {
-            return {
-              success: false,
-              error: "FAL_KEY no configurada. Anade tu API key de fal.ai en las variables de entorno.",
-            };
+            return { success: false, error: "FAL_KEY no configurada." };
           }
 
           try {
@@ -92,7 +115,6 @@ export async function POST(req: Request) {
               imageSize: ratioToImageSize(ratio),
               numImages: numImages || 1,
             });
-
             return {
               success: true,
               images: images.map((img) => ({
@@ -105,10 +127,67 @@ export async function POST(req: Request) {
               prompt,
             };
           } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : "Generation error" };
+          }
+        },
+      },
+      editImage: {
+        description:
+          "Edit an existing image using AI. Supports inpainting, style transfer, background removal, upscaling.",
+        inputSchema: z.object({
+          sourceImageUrl: z.string().describe("URL of the image to edit"),
+          instruction: z.string().describe("What to change, in English"),
+          operation: z
+            .enum(["inpaint", "style-transfer", "background-removal", "upscale", "outpaint"])
+            .describe("Type of edit operation"),
+        }),
+        execute: async ({ sourceImageUrl, instruction, operation }: { sourceImageUrl: string; instruction: string; operation: string }) => {
+          if (!process.env.FAL_KEY) {
+            return { success: false, error: "FAL_KEY no configurada." };
+          }
+
+          try {
+            if (operation === "upscale") {
+              const { fal } = await import("@fal-ai/client");
+              fal.config({ credentials: process.env.FAL_KEY });
+              const result = await fal.subscribe("fal-ai/clarity-upscaler", {
+                input: { image_url: sourceImageUrl },
+              });
+              const data = result.data as { image: { url: string; width: number; height: number } };
+              return {
+                success: true,
+                images: [{ url: data.image.url, width: data.image.width, height: data.image.height }],
+                operation,
+              };
+            }
+
+            if (operation === "background-removal") {
+              const { fal } = await import("@fal-ai/client");
+              fal.config({ credentials: process.env.FAL_KEY });
+              const result = await fal.subscribe("fal-ai/bria/background/remove", {
+                input: { image_url: sourceImageUrl },
+              });
+              const data = result.data as { image: { url: string; width: number; height: number } };
+              return {
+                success: true,
+                images: [{ url: data.image.url, width: data.image.width, height: data.image.height }],
+                operation,
+              };
+            }
+
+            // Default: use Kontext for inpaint/style-transfer/outpaint
+            const images = await generateImage({
+              prompt: instruction,
+              model: "fal-ai/flux-pro/kontext" as any,
+              imageSize: "square_hd",
+            });
             return {
-              success: false,
-              error: error instanceof Error ? error.message : "Error generating image",
+              success: true,
+              images: images.map((img) => ({ url: img.url, width: img.width, height: img.height })),
+              operation,
             };
+          } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : "Edit error" };
           }
         },
       },

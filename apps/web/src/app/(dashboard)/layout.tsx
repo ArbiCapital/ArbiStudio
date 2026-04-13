@@ -15,6 +15,8 @@ import {
   PanelLeftClose,
   PanelLeft,
   Sparkles,
+  Users,
+  Palette,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -29,6 +31,7 @@ import { cn } from "@/lib/utils";
 const NAV_ITEMS = [
   { href: "/chat", label: "Chat", icon: MessageSquare },
   { href: "/library", label: "Libreria", icon: ImageIcon },
+  { href: "/soul-builder", label: "Personajes", icon: Users },
   { href: "/campaigns", label: "Campanas", icon: BarChart3 },
   { href: "/competitors", label: "Competencia", icon: Search },
   { href: "/strategy", label: "Estrategia", icon: Calendar },
