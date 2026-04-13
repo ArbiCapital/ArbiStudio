@@ -17,6 +17,7 @@ import {
   Sparkles,
   Users,
   Mic,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -27,6 +28,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 import { listConversations, type StoredConversation } from "@/lib/chat-storage";
 
 const NAV_ITEMS = [
@@ -187,6 +189,26 @@ export default function DashboardLayout({
             </div>
           </>
         )}
+
+        {/* Logout */}
+        <div className="border-t border-border p-3">
+          <Button
+            variant="ghost"
+            className={cn(
+              "w-full justify-start gap-2 text-muted-foreground hover:text-destructive",
+              collapsed && "justify-center px-0"
+            )}
+            onClick={async () => {
+              const supabase = createClient();
+              await supabase.auth.signOut();
+              router.push("/login");
+              router.refresh();
+            }}
+          >
+            <LogOut className="h-4 w-4" />
+            {!collapsed && "Cerrar sesion"}
+          </Button>
+        </div>
       </aside>
 
       {/* Main content */}
