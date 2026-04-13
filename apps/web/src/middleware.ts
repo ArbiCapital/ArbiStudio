@@ -1,10 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { updateSession } from "@/lib/supabase/middleware";
 
-export async function middleware(_request: NextRequest) {
-  // Auth disabled during development — all routes accessible
-  return NextResponse.next();
+export async function middleware(request: NextRequest) {
+  try {
+    return await updateSession(request);
+  } catch {
+    return NextResponse.next();
+  }
 }
 
 export const config = {
-  matcher: [],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|login|register|auth|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };

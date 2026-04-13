@@ -16,6 +16,7 @@ import {
   PanelLeft,
   Sparkles,
   Users,
+  Mic,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -33,6 +34,7 @@ const NAV_ITEMS = [
   { href: "/video-studio", label: "Video Studio", icon: Film },
   { href: "/library", label: "Libreria", icon: ImageIcon },
   { href: "/soul-builder", label: "Personajes", icon: Users },
+  { href: "/lipsync", label: "Lipsync", icon: Mic },
   { href: "/campaigns", label: "Campanas", icon: BarChart3 },
   { href: "/competitors", label: "Competencia", icon: Search },
   { href: "/strategy", label: "Estrategia", icon: Calendar },
