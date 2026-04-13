@@ -11,9 +11,11 @@ import {
   Target,
   ExternalLink,
   AlertCircle,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Campaign {
   id: string;
@@ -64,11 +66,34 @@ export default function CampaignsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "paused">("all");
+  const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
+  const [campaignDetails, setCampaignDetails] = useState<any>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+
+  const openDetails = async (campaignId: string) => {
+    setSelectedCampaign(campaignId);
+    setDetailsLoading(true);
+    setCampaignDetails(null);
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}`);
+      const data = await res.json();
+      if (data.success) setCampaignDetails(data);
+    } catch {}
+    setDetailsLoading(false);
+  };
+
+  const filtered = campaigns.filter((c) => {
+    if (statusFilter === "all") return true;
+    return c.status === statusFilter;
+  });
+
   const activeCampaigns = campaigns.filter((c) => c.status === "active");
-  const totalSpend = campaigns.reduce((sum, c) => sum + c.spend, 0);
-  const totalImpressions = campaigns.reduce((sum, c) => sum + c.impressions, 0);
-  const totalClicks = campaigns.reduce((sum, c) => sum + c.clicks, 0);
-  const totalConversions = campaigns.reduce((sum, c) => sum + (Number(c.conversions) || 0), 0);
+  const pausedCampaigns = campaigns.filter((c) => c.status === "paused");
+  const totalSpend = filtered.reduce((sum, c) => sum + c.spend, 0);
+  const totalImpressions = filtered.reduce((sum, c) => sum + c.impressions, 0);
+  const totalClicks = filtered.reduce((sum, c) => sum + c.clicks, 0);
+  const totalConversions = filtered.reduce((sum, c) => sum + (Number(c.conversions) || 0), 0);
 
   return (
     <div className="flex h-full flex-col">
@@ -121,6 +146,30 @@ export default function CampaignsPage() {
         </div>
       )}
 
+      {/* Status filter */}
+      {!loading && !error && (
+        <div className="flex items-center gap-2 border-b border-border px-6 py-3">
+          <span className="text-xs font-medium text-muted-foreground">Filtrar:</span>
+          {[
+            { id: "all" as const, label: "Todas", count: campaigns.length },
+            { id: "active" as const, label: "Activas", count: activeCampaigns.length },
+            { id: "paused" as const, label: "Pausadas", count: pausedCampaigns.length },
+          ].map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setStatusFilter(f.id)}
+              className={`rounded-full px-3 py-1 text-xs transition-all ${
+                statusFilter === f.id
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {f.label} ({f.count})
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
         {loading ? (
@@ -140,7 +189,7 @@ export default function CampaignsPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {campaigns.map((campaign) => (
+            {filtered.map((campaign) => (
               <div
                 key={campaign.id}
                 className="rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/30"
@@ -158,7 +207,7 @@ export default function CampaignsPage() {
                       {OBJECTIVE_LABELS[campaign.objective] || campaign.objective} · {campaign.dailyBudget > 0 ? `${campaign.dailyBudget}€/dia` : "Sin presupuesto diario"} · Creada {new Date(campaign.createdAt).toLocaleDateString("es")}
                     </p>
                   </div>
-                  <Button variant="outline" size="sm" className="gap-1 text-xs">
+                  <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => openDetails(campaign.id)}>
                     <BarChart3 className="h-3 w-3" /> Detalles
                   </Button>
                 </div>
@@ -193,6 +242,116 @@ export default function CampaignsPage() {
           </div>
         )}
       </div>
+
+      {/* Campaign detail modal */}
+      <Dialog open={!!selectedCampaign} onOpenChange={() => setSelectedCampaign(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {campaignDetails?.campaign?.name || "Detalles de campana"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {detailsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : campaignDetails ? (
+            <div className="space-y-6">
+              {/* Status */}
+              <div className="flex items-center gap-2">
+                <Badge className={STATUS_COLORS[campaignDetails.campaign.status?.toLowerCase()] || ""}>
+                  {campaignDetails.campaign.status}
+                </Badge>
+                <Badge variant="outline">{OBJECTIVE_LABELS[campaignDetails.campaign.objective] || campaignDetails.campaign.objective}</Badge>
+                <Badge variant="outline">{campaignDetails.campaign.dailyBudget}€/dia</Badge>
+              </div>
+
+              {/* Insights grid */}
+              <div>
+                <h4 className="mb-2 text-sm font-semibold">Metricas (ultimos 30 dias)</h4>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {[
+                    { label: "Gasto", value: `${campaignDetails.insights.spend.toFixed(2)}€` },
+                    { label: "Impresiones", value: campaignDetails.insights.impressions.toLocaleString() },
+                    { label: "Alcance", value: campaignDetails.insights.reach.toLocaleString() },
+                    { label: "Clicks", value: campaignDetails.insights.clicks.toLocaleString() },
+                    { label: "CTR", value: `${campaignDetails.insights.ctr.toFixed(2)}%` },
+                    { label: "CPC", value: `${campaignDetails.insights.cpc.toFixed(2)}€` },
+                    { label: "CPM", value: `${campaignDetails.insights.cpm.toFixed(2)}€` },
+                    { label: "Frecuencia", value: campaignDetails.insights.frequency.toFixed(2) },
+                  ].map((m) => (
+                    <div key={m.label} className="rounded-lg bg-muted/30 p-3 text-center">
+                      <p className="text-[10px] text-muted-foreground">{m.label}</p>
+                      <p className="text-sm font-bold">{m.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Actions/Conversions */}
+              {campaignDetails.insights.actions?.length > 0 && (
+                <div>
+                  <h4 className="mb-2 text-sm font-semibold">Acciones</h4>
+                  <div className="space-y-1">
+                    {campaignDetails.insights.actions.map((a: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between rounded-lg bg-muted/20 px-3 py-1.5 text-xs">
+                        <span className="text-muted-foreground">{a.action_type?.replace(/_/g, " ")}</span>
+                        <span className="font-semibold">{a.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Ad Sets */}
+              {campaignDetails.adSets?.length > 0 && (
+                <div>
+                  <h4 className="mb-2 text-sm font-semibold">Conjuntos de anuncios ({campaignDetails.adSets.length})</h4>
+                  <div className="space-y-2">
+                    {campaignDetails.adSets.map((adSet: any) => (
+                      <div key={adSet.id} className="rounded-lg border border-border p-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">{adSet.name}</span>
+                          <Badge className={`text-[10px] ${STATUS_COLORS[adSet.status?.toLowerCase()] || ""}`}>
+                            {adSet.status}
+                          </Badge>
+                        </div>
+                        {adSet.daily_budget && (
+                          <p className="mt-1 text-xs text-muted-foreground">{parseInt(adSet.daily_budget) / 100}€/dia</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Ads */}
+              {campaignDetails.ads?.length > 0 && (
+                <div>
+                  <h4 className="mb-2 text-sm font-semibold">Anuncios ({campaignDetails.ads.length})</h4>
+                  <div className="space-y-2">
+                    {campaignDetails.ads.map((ad: any) => (
+                      <div key={ad.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
+                        {ad.creative?.thumbnail_url && (
+                          <img src={ad.creative.thumbnail_url} alt="" className="h-12 w-12 rounded object-cover" />
+                        )}
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{ad.name}</p>
+                          {ad.creative?.body && <p className="text-xs text-muted-foreground line-clamp-1">{ad.creative.body}</p>}
+                        </div>
+                        <Badge className={`text-[10px] ${STATUS_COLORS[ad.status?.toLowerCase()] || ""}`}>
+                          {ad.status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
