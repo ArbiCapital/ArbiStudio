@@ -8,44 +8,52 @@ export const maxDuration = 120;
 
 const SYSTEM_PROMPT = `Eres ArbiStudio, el asistente de creacion de contenido IA mas avanzado del mercado.
 
-## Tus capacidades:
-1. **Image Studio**: Generas imagenes con IA (Flux Pro, Ideogram, Recraft, Gemini 4K)
-2. **Video Studio**: Produces video profesional con subtitulos, motion graphics, musica
-3. **Cinema Studio**: Controles cinematograficos (camara, lente, color grading)
-4. **Click-to-Ad**: Pega una URL y generas anuncios automaticamente
-5. **Ads Hub**: Publicas directo en Meta, Google y TikTok Ads
-6. **Competitor Intel**: Analizas la competencia scrapeando ads y contenido
-7. **Strategy Engine**: Planificas calendarios editoriales basados en datos
+## CONTEXTO DEL USUARIO:
+Los mensajes del usuario incluyen un tag [CONTEXT: formato=X, estilo=Y] al inicio. USA esos valores para:
+- "formato" → usalo como ratio en generateImage
+- "estilo" → usalo para seleccionar el modelo y estilo del prompt
+NO muestres el tag [CONTEXT] al usuario. Ignora su existencia en tu respuesta.
 
-## Reglas de interaccion:
-- Responde siempre en espanol
-- Se conciso y profesional
-- Cuando el usuario quiera una imagen, usa SIEMPRE la tool generateImage
-- Para el prompt de la tool, escribe un prompt detallado EN INGLES optimizado para el modelo de IA
-- Describe al usuario en espanol que vas a generar antes de hacerlo
-- Sugiere variantes y formatos alternativos despues de generar
-- Si el usuario pega una URL, analiza que quiere y sugiere acciones
-- Para batch generation, puedes llamar generateImage varias veces con distintos prompts/estilos
+## REGLAS CRITICAS PARA GENERACION DE IMAGEN:
 
-## Seleccion de modelo:
-- Fotos realistas / producto / retrato → flux-pro (default, mejor calidad)
-- Texto en imagen (banners, ads, titulos) → ideogram (mejor texto)
-- Ilustraciones / vectores / branding → recraft (estilos artisticos)
-- Edicion de imagen existente → kontext (edicion contextual)
-- 4K con texto perfecto y grounding → gemini (Google Gemini, maximo detalle)
+1. SIEMPRE usa la tool generateImage cuando el usuario pida cualquier tipo de imagen
+2. El prompt para la tool DEBE ser EN INGLES, ultra-detallado y profesional
+3. RESPETA el formato que el usuario tiene seleccionado. Si tiene "4:5" seleccionado, usa ratio "4:5"
+4. RESPETA el estilo seleccionado:
+   - "photorealistic" → model "flux-pro", prompt con: "photorealistic, professional photography, 8K detail, natural lighting, sharp focus"
+   - "cinematic" → model "flux-pro", prompt con: "cinematic still, film grain, anamorphic bokeh, dramatic lighting, color graded"
+   - "editorial" → model "flux-pro", prompt con: "editorial fashion photography, studio lighting, high-end magazine style"
+   - "animated" → model "recraft", prompt con: "3D animated character, Pixar style, vibrant colors, soft lighting, detailed textures"
+   - "anime" → model "recraft", prompt con: "anime style illustration, detailed anime art, cel shading, vibrant colors"
+   - "illustration" → model "recraft", prompt con: "digital illustration, vector art, clean lines, modern graphic design"
+   - "product" → model "flux-pro", prompt con: "professional product photography, studio lighting, clean white background, commercial quality"
+   - "minimal" → model "flux-pro", prompt con: "minimalist photography, clean composition, negative space, subtle tones"
+   - "ad-banner" → model "ideogram", prompt con: "professional advertising banner, bold typography, commercial design"
 
-## Formato de respuesta:
-1. Explica brevemente que vas a crear
-2. Ejecuta la tool generateImage
-3. Tras la generacion, sugiere: editar, variantes, otros formatos, publicar`;
+5. ESTRUCTURA DEL PROMPT DE IMAGEN (sigue este orden):
+   [Sujeto principal] + [Accion/Pose] + [Entorno/Fondo] + [Iluminacion] + [Estilo fotografico] + [Detalles tecnicos] + [Mood/Atmosfera]
+
+   Ejemplo BUENO: "Luxury Swiss wristwatch with silver metal band resting on polished white marble surface, soft natural window light from the left creating gentle shadows, product photography style, 8K resolution, shallow depth of field f/2.8, warm neutral tones, elegant and sophisticated atmosphere"
+
+   Ejemplo MALO: "a watch on marble" (demasiado vago)
+
+6. Despues de generar, sugiere brevemente: variantes, otros formatos, ediciones posibles
+
+## SELECCION DE MODELO:
+- flux-pro: Fotorrealismo, producto, retrato, editorial, cinematografico, minimal
+- ideogram: Texto en imagen, banners publicitarios, titulos, logos con texto
+- recraft: Ilustracion, animacion 3D, anime, vectores, branding artistico
+- kontext: Edicion de imagen existente
+- gemini: 4K maximo detalle (solo si el usuario lo pide especificamente)
+
+## RESPONDE SIEMPRE EN ESPANOL. Los prompts de imagen siempre en ingles.`;
 
 export async function POST(req: Request) {
   const { messages: rawMessages } = await req.json();
 
   // Convert UI messages (parts-based) to model messages (content-based)
   const messages = rawMessages.map((msg: any) => {
-    if (msg.content) return msg; // Already in model format
-    // Extract text from parts
+    if (msg.content) return msg;
     const textParts = msg.parts?.filter((p: any) => p.type === "text") || [];
     const content = textParts.map((p: any) => p.text).join("") || "";
     return { role: msg.role, content };
@@ -58,19 +66,17 @@ export async function POST(req: Request) {
     tools: {
       generateImage: {
         description:
-          "Generate an AI image. Use detailed English prompts. Choose model based on content type.",
+          "Generate an AI image. Write ultra-detailed English prompts following the structure: [Subject] + [Action] + [Environment] + [Lighting] + [Style] + [Technical] + [Mood]. Choose model based on the selected style.",
         inputSchema: z.object({
           prompt: z
             .string()
-            .describe("Detailed image prompt IN ENGLISH with style, lighting, composition details."),
+            .describe("Ultra-detailed image prompt IN ENGLISH. Follow the structure: subject, action, environment, lighting, style, technical details, mood. Minimum 30 words."),
           model: z
             .enum(["flux-pro", "ideogram", "recraft", "kontext", "gemini"])
-            .describe(
-              "flux-pro: photorealistic. ideogram: text-in-image. recraft: illustration. kontext: image editing. gemini: 4K with text rendering."
-            ),
+            .describe("flux-pro: photos/cinematic/editorial/product/minimal. ideogram: text-in-image/banners. recraft: illustration/animated/anime. kontext: editing. gemini: 4K."),
           ratio: z
             .enum(["1:1", "4:5", "9:16", "16:9", "4:3"])
-            .describe("Aspect ratio for the target platform."),
+            .describe("Aspect ratio. MUST match the user's [CONTEXT: formato=X] tag. Default 4:5 for Instagram."),
           numImages: z
             .number()
             .min(1)
@@ -96,9 +102,7 @@ export async function POST(req: Request) {
                   width: img.width,
                   height: img.height,
                 })),
-                model: "gemini",
-                ratio,
-                prompt,
+                model: "gemini", ratio, prompt,
               };
             } catch (error) {
               return { success: false, error: error instanceof Error ? error.message : "Gemini error" };
@@ -126,14 +130,8 @@ export async function POST(req: Request) {
             });
             return {
               success: true,
-              images: images.map((img) => ({
-                url: img.url,
-                width: img.width,
-                height: img.height,
-              })),
-              model,
-              ratio,
-              prompt,
+              images: images.map((img) => ({ url: img.url, width: img.width, height: img.height })),
+              model, ratio, prompt,
             };
           } catch (error) {
             return { success: false, error: error instanceof Error ? error.message : "Generation error" };
@@ -141,60 +139,29 @@ export async function POST(req: Request) {
         },
       },
       editImage: {
-        description:
-          "Edit an existing image using AI. Supports inpainting, style transfer, background removal, upscaling.",
+        description: "Edit an existing image: upscale, remove background, inpaint, or style transfer.",
         inputSchema: z.object({
           sourceImageUrl: z.string().describe("URL of the image to edit"),
           instruction: z.string().describe("What to change, in English"),
-          operation: z
-            .enum(["inpaint", "style-transfer", "background-removal", "upscale", "outpaint"])
-            .describe("Type of edit operation"),
+          operation: z.enum(["inpaint", "style-transfer", "background-removal", "upscale", "outpaint"]).describe("Type of edit"),
         }),
         execute: async ({ sourceImageUrl, instruction, operation }: { sourceImageUrl: string; instruction: string; operation: string }) => {
-          if (!process.env.FAL_KEY) {
-            return { success: false, error: "FAL_KEY no configurada." };
-          }
-
+          if (!process.env.FAL_KEY) return { success: false, error: "FAL_KEY no configurada." };
           try {
+            const { fal } = await import("@fal-ai/client");
+            fal.config({ credentials: process.env.FAL_KEY });
             if (operation === "upscale") {
-              const { fal } = await import("@fal-ai/client");
-              fal.config({ credentials: process.env.FAL_KEY });
-              const result = await fal.subscribe("fal-ai/clarity-upscaler", {
-                input: { image_url: sourceImageUrl },
-              });
+              const result = await fal.subscribe("fal-ai/clarity-upscaler", { input: { image_url: sourceImageUrl } });
               const data = result.data as { image: { url: string; width: number; height: number } };
-              return {
-                success: true,
-                images: [{ url: data.image.url, width: data.image.width, height: data.image.height }],
-                operation,
-              };
+              return { success: true, images: [{ url: data.image.url, width: data.image.width, height: data.image.height }], operation };
             }
-
             if (operation === "background-removal") {
-              const { fal } = await import("@fal-ai/client");
-              fal.config({ credentials: process.env.FAL_KEY });
-              const result = await fal.subscribe("fal-ai/bria/background/remove", {
-                input: { image_url: sourceImageUrl },
-              });
+              const result = await fal.subscribe("fal-ai/bria/background/remove", { input: { image_url: sourceImageUrl } });
               const data = result.data as { image: { url: string; width: number; height: number } };
-              return {
-                success: true,
-                images: [{ url: data.image.url, width: data.image.width, height: data.image.height }],
-                operation,
-              };
+              return { success: true, images: [{ url: data.image.url, width: data.image.width, height: data.image.height }], operation };
             }
-
-            // Default: use Kontext for inpaint/style-transfer/outpaint
-            const images = await generateImage({
-              prompt: instruction,
-              model: "fal-ai/flux-pro/kontext" as any,
-              imageSize: "square_hd",
-            });
-            return {
-              success: true,
-              images: images.map((img) => ({ url: img.url, width: img.width, height: img.height })),
-              operation,
-            };
+            const images = await generateImage({ prompt: instruction, model: "fal-ai/flux-pro/kontext" as any, imageSize: "square_hd" });
+            return { success: true, images: images.map((img) => ({ url: img.url, width: img.width, height: img.height })), operation };
           } catch (error) {
             return { success: false, error: error instanceof Error ? error.message : "Edit error" };
           }
