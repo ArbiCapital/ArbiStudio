@@ -46,6 +46,15 @@ NO muestres el tag [CONTEXT] al usuario. Ignora su existencia en tu respuesta.
 - kontext: Edicion de imagen existente
 - gemini: 4K maximo detalle (solo si el usuario lo pide especificamente)
 
+## GENERACION DE ANUNCIOS PARA INSTAGRAM:
+Cuando el usuario pida "generar anuncio", "crear ad para Instagram", "anuncio estatico", etc.:
+1. Usa la tool generateInstagramAd
+2. Esta tool genera TODO de golpe: imagen + copy + hashtags + CTA
+3. El copy DEBE ser en ESPANOL (es el idioma del mercado del usuario)
+4. Los hashtags deben ser relevantes al sector (max 20)
+5. El CTA debe ser claro y accionable
+6. Genera la imagen con el formato del usuario (normalmente 4:5 o 1:1 para feed)
+
 ## RESPONDE SIEMPRE EN ESPANOL. Los prompts de imagen siempre en ingles.`;
 
 export async function POST(req: Request) {
@@ -177,6 +186,56 @@ export async function POST(req: Request) {
             return { success: true, images: images.map((img) => ({ url: img.url, width: img.width, height: img.height })), operation };
           } catch (error) {
             return { success: false, error: error instanceof Error ? error.message : "Edit error" };
+          }
+        },
+      },
+      generateInstagramAd: {
+        description: "Generate a complete Instagram ad: image + caption + hashtags + CTA. Use when user asks for an ad, anuncio, or creative for Instagram.",
+        inputSchema: z.object({
+          imagePrompt: z.string().describe("Detailed image prompt IN ENGLISH for the ad visual. Professional, commercial quality."),
+          headline: z.string().describe("Short attention-grabbing headline IN SPANISH (max 10 words)"),
+          caption: z.string().describe("Full Instagram caption IN SPANISH. Persuasive, with emojis, 2-3 paragraphs. Include a clear value proposition."),
+          cta: z.string().describe("Call to action IN SPANISH (e.g., 'Comenta INFO', 'Link en bio', 'Reserva tu plaza')"),
+          hashtags: z.array(z.string()).describe("15-20 relevant hashtags in Spanish (without #)"),
+          targetAudience: z.string().describe("Description of target audience in Spanish"),
+          ratio: z.enum(["1:1", "4:5", "9:16"]).describe("Format: 4:5 for feed (recommended), 1:1 for square, 9:16 for stories/reels"),
+          model: z.enum(["flux-pro", "ideogram", "recraft"]).describe("flux-pro for photos, ideogram for text-heavy banners, recraft for illustrations"),
+        }),
+        execute: async ({ imagePrompt, headline, caption, cta, hashtags, targetAudience, ratio, model }: {
+          imagePrompt: string; headline: string; caption: string; cta: string;
+          hashtags: string[]; targetAudience: string; ratio: string; model: string;
+        }) => {
+          const MODEL_MAP: Record<string, string> = {
+            "flux-pro": "fal-ai/flux-pro/v1.1",
+            ideogram: "fal-ai/ideogram/v3",
+            recraft: "fal-ai/recraft-v3",
+          };
+
+          if (!process.env.FAL_KEY) return { success: false, error: "FAL_KEY no configurada." };
+
+          try {
+            const images = await generateImage({
+              prompt: imagePrompt,
+              model: MODEL_MAP[model] as any,
+              imageSize: ratioToImageSize(ratio),
+              numImages: 1,
+            });
+
+            return {
+              success: true,
+              type: "instagram_ad",
+              images: images.map((img) => ({ url: img.url, width: img.width, height: img.height })),
+              ad: {
+                headline,
+                caption,
+                cta,
+                hashtags: hashtags.map((h) => `#${h}`).join(" "),
+                targetAudience,
+              },
+              model, ratio, prompt: imagePrompt,
+            };
+          } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : "Ad generation error" };
           }
         },
       },

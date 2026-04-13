@@ -110,9 +110,11 @@ function ToolInvocationPart({
   result?: Record<string, unknown>;
 }) {
   if (toolName === "generateImage") {
-    return (
-      <ImageToolResult state={state} args={args} result={result} />
-    );
+    return <ImageToolResult state={state} args={args} result={result} />;
+  }
+
+  if (toolName === "generateInstagramAd") {
+    return <InstagramAdResult state={state} args={args} result={result} />;
   }
 
   // Generic tool display
@@ -307,6 +309,145 @@ function ImageToolResult({
         <Button size="sm" className="h-8 gap-1.5 text-xs">
           <Share2 className="h-3.5 w-3.5" />
           Publicar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function InstagramAdResult({
+  state,
+  args,
+  result,
+}: {
+  state: string;
+  args: Record<string, unknown>;
+  result?: Record<string, unknown>;
+}) {
+  if (state !== "output-available") {
+    return (
+      <div className="rounded-xl border border-border bg-muted/30 p-4">
+        <div className="flex items-center gap-3">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <div>
+            <p className="text-sm font-medium">Generando anuncio de Instagram...</p>
+            <p className="text-xs text-muted-foreground">Imagen + copy + hashtags + CTA</p>
+          </div>
+        </div>
+        <div className="mt-4 aspect-[4/5] max-w-xs animate-pulse rounded-lg bg-muted" />
+      </div>
+    );
+  }
+
+  if (result && !result.success) {
+    return (
+      <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4">
+        <p className="text-sm text-destructive">Error: {result.error as string}</p>
+      </div>
+    );
+  }
+
+  const images = (result?.images as Array<{ url: string; width: number; height: number }>) || [];
+  const ad = result?.ad as { headline: string; caption: string; cta: string; hashtags: string; targetAudience: string } | undefined;
+
+  return (
+    <div className="space-y-4">
+      {/* Ad preview card */}
+      <div className="max-w-md overflow-hidden rounded-xl border border-border bg-card">
+        {/* Header */}
+        <div className="flex items-center gap-2 px-3 py-2">
+          <div className="h-8 w-8 rounded-full bg-primary/20" />
+          <div>
+            <p className="text-xs font-semibold">arbicapitaluae</p>
+            <p className="text-[10px] text-muted-foreground">Patrocinado</p>
+          </div>
+        </div>
+
+        {/* Image */}
+        {images[0] && (
+          <img src={images[0].url} alt="Ad" className="w-full" />
+        )}
+
+        {/* Ad content */}
+        <div className="p-3 space-y-2">
+          {ad?.headline && (
+            <p className="text-sm font-bold">{ad.headline}</p>
+          )}
+          {ad?.caption && (
+            <p className="text-sm whitespace-pre-line">{ad.caption}</p>
+          )}
+          {ad?.cta && (
+            <div className="rounded-lg bg-primary/10 px-3 py-2 text-center">
+              <p className="text-sm font-semibold text-primary">{ad.cta}</p>
+            </div>
+          )}
+          {ad?.hashtags && (
+            <p className="text-xs text-blue-400">{ad.hashtags}</p>
+          )}
+          {ad?.targetAudience && (
+            <p className="text-[10px] text-muted-foreground">🎯 Audiencia: {ad.targetAudience}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 text-xs"
+          onClick={() => {
+            if (ad?.caption && ad?.hashtags) {
+              navigator.clipboard.writeText(`${ad.caption}\n\n${ad.hashtags}`);
+            }
+          }}
+        >
+          <Copy className="h-3.5 w-3.5" />
+          Copiar copy
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 text-xs"
+          onClick={() => {
+            const event = new CustomEvent("arbistudio:chat-action", {
+              detail: { action: "variants", prompt: "Genera 3 variantes mas del anuncio anterior con diferentes enfoques creativos" },
+            });
+            window.dispatchEvent(event);
+          }}
+        >
+          <Copy className="h-3.5 w-3.5" />
+          Mas variantes
+        </Button>
+        {images[0] && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            onClick={async () => {
+              try {
+                const response = await fetch(images[0].url);
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `arbistudio-instagram-ad-${Date.now()}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              } catch {
+                window.open(images[0].url, "_blank");
+              }
+            }}
+          >
+            <Download className="h-3.5 w-3.5" />
+            Descargar
+          </Button>
+        )}
+        <Button size="sm" className="h-8 gap-1.5 text-xs">
+          <Share2 className="h-3.5 w-3.5" />
+          Publicar en IG
         </Button>
       </div>
     </div>
