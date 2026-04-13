@@ -35,12 +35,14 @@ export default function VideoStudioPage() {
   const [selectedLens, setSelectedLens] = useState("50mm-portrait");
   const [selectedGrading, setSelectedGrading] = useState("none");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
+  const [videoError, setVideoError] = useState<string | null>(null);
 
   const handleGenerate = async () => {
     if (!prompt) return;
     setIsGenerating(true);
+    setVideoError(null);
 
-    // Build enhanced prompt with cinema presets
     let enhancedPrompt = prompt;
     const camera = CAMERA_PRESETS.find((p) => p.id === selectedCamera);
     const lens = LENS_PRESETS.find((l) => l.id === selectedLens);
@@ -60,8 +62,12 @@ export default function VideoStudioPage() {
       });
       const data = await res.json();
       if (data.success) {
-        // TODO: Display video in preview
+        setGeneratedVideo(data.video.url);
+      } else {
+        setVideoError(data.error || "Error generando video");
       }
+    } catch (err) {
+      setVideoError("Error de conexion");
     } finally {
       setIsGenerating(false);
     }
@@ -101,17 +107,44 @@ export default function VideoStudioPage() {
                   ?.cssFilter || "none",
             }}
           >
-            <div className="flex h-full flex-col items-center justify-center gap-4">
-              <Film className="h-16 w-16 text-muted-foreground/20" />
-              <p className="text-sm text-muted-foreground">
-                Preview del video aparecera aqui
-              </p>
-              <div className="flex gap-2">
-                <Badge variant="outline">16:9</Badge>
-                <Badge variant="outline">1920x1080</Badge>
-                <Badge variant="outline">30fps</Badge>
+            {generatedVideo ? (
+              <video
+                src={generatedVideo}
+                controls
+                autoPlay
+                loop
+                className="h-full w-full object-contain"
+              />
+            ) : isGenerating ? (
+              <div className="flex h-full flex-col items-center justify-center gap-4">
+                <Sparkles className="h-12 w-12 animate-pulse text-primary" />
+                <p className="text-sm text-muted-foreground">
+                  Generando video... Esto puede tardar 30-60 segundos
+                </p>
+                <div className="h-1.5 w-48 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full animate-pulse rounded-full bg-primary" style={{ width: "60%" }} />
+                </div>
               </div>
-            </div>
+            ) : videoError ? (
+              <div className="flex h-full flex-col items-center justify-center gap-3">
+                <p className="text-sm text-destructive">{videoError}</p>
+                <Button variant="outline" size="sm" onClick={() => setVideoError(null)}>
+                  Reintentar
+                </Button>
+              </div>
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-4">
+                <Film className="h-16 w-16 text-muted-foreground/20" />
+                <p className="text-sm text-muted-foreground">
+                  Escribe un prompt y genera tu video
+                </p>
+                <div className="flex gap-2">
+                  <Badge variant="outline">16:9</Badge>
+                  <Badge variant="outline">1920x1080</Badge>
+                  <Badge variant="outline">30fps</Badge>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

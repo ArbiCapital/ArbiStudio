@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   MessageSquare,
   ImageIcon,
@@ -16,7 +16,6 @@ import {
   PanelLeft,
   Sparkles,
   Users,
-  Palette,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -27,6 +26,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { listConversations, type StoredConversation } from "@/lib/chat-storage";
 
 const NAV_ITEMS = [
   { href: "/chat", label: "Chat", icon: MessageSquare },
@@ -45,7 +45,19 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  const [conversations, setConversations] = useState<StoredConversation[]>([]);
+
+  // Load conversations from localStorage
+  useEffect(() => {
+    setConversations(listConversations());
+    // Poll for changes every 2s (when user generates content in chat)
+    const interval = setInterval(() => {
+      setConversations(listConversations());
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -89,6 +101,10 @@ export default function DashboardLayout({
                 "w-full justify-start gap-2",
                 collapsed && "justify-center px-0"
               )}
+              onClick={() => {
+                // Force new conversation by adding timestamp param
+                router.push("/chat?new=" + Date.now());
+              }}
             >
               <Plus className="h-4 w-4" />
               {!collapsed && "Nueva conversacion"}
@@ -131,7 +147,7 @@ export default function DashboardLayout({
           })}
         </nav>
 
-        {/* Recent conversations — loaded from localStorage in chat page */}
+        {/* Recent conversations from localStorage */}
         {!collapsed && (
           <>
             <Separator />
@@ -140,10 +156,26 @@ export default function DashboardLayout({
                 Recientes
               </p>
               <ScrollArea className="h-40">
-                <div className="space-y-1" id="sidebar-conversations">
-                  <p className="px-2 text-xs text-muted-foreground/50">
-                    Las conversaciones apareceran aqui
-                  </p>
+                <div className="space-y-0.5">
+                  {conversations.length === 0 ? (
+                    <p className="px-2 text-xs text-muted-foreground/50">
+                      Sin conversaciones aun
+                    </p>
+                  ) : (
+                    conversations.slice(0, 15).map((conv) => (
+                      <Link
+                        key={conv.id}
+                        href={`/chat?id=${conv.id}`}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors",
+                          "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                        )}
+                      >
+                        <MessageSquare className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{conv.title}</span>
+                      </Link>
+                    ))
+                  )}
                 </div>
               </ScrollArea>
             </div>

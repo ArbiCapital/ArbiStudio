@@ -260,17 +260,49 @@ function ImageToolResult({
 
       {/* Action buttons */}
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 text-xs"
+          onClick={() => {
+            const event = new CustomEvent("arbistudio:chat-action", {
+              detail: { action: "edit", prompt: `Edita la imagen anterior: hazla mas brillante y con mas contraste` },
+            });
+            window.dispatchEvent(event);
+          }}
+        >
           <Pencil className="h-3.5 w-3.5" />
           Editar
         </Button>
-        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 text-xs"
+          onClick={() => {
+            const event = new CustomEvent("arbistudio:chat-action", {
+              detail: { action: "variants", prompt: "Genera 3 variantes diferentes de la imagen anterior con estilos distintos" },
+            });
+            window.dispatchEvent(event);
+          }}
+        >
           <Copy className="h-3.5 w-3.5" />
           Mas variantes
         </Button>
-        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 text-xs"
+          onClick={() => {
+            if (images[0]) {
+              const a = document.createElement("a");
+              a.href = images[0].url;
+              a.download = `arbistudio-${model}-${Date.now()}.png`;
+              a.click();
+            }
+          }}
+        >
           <Download className="h-3.5 w-3.5" />
-          Descargar
+          Descargar todo
         </Button>
         <Button size="sm" className="h-8 gap-1.5 text-xs">
           <Share2 className="h-3.5 w-3.5" />

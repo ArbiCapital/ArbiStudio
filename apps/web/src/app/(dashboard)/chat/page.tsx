@@ -1,13 +1,15 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, Suspense } from "react";
 import { useChat } from "@ai-sdk/react";
+import { useSearchParams } from "next/navigation";
 import { ChatInput } from "@/components/chat/chat-input";
 import { ChatMessage, ChatMessageLoading } from "@/components/chat/chat-message";
 import { FormatSwitcher } from "@/components/chat/format-switcher";
 import { useChatStore } from "@/stores/chat-store";
 import {
   listConversations,
+  getConversation,
   saveConversation,
   deleteConversation,
   generateConversationId,
@@ -49,11 +51,21 @@ const QUICK_ACTIONS = [
   { icon: Calendar, label: "Estrategia mensual", prompt: "Crea un calendario editorial para el proximo mes con contenido para Instagram, TikTok y LinkedIn" },
 ];
 
-export default function ChatPage() {
+export default function ChatPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex h-full items-center justify-center"><Sparkles className="h-8 w-8 animate-pulse text-primary" /></div>}>
+      <ChatPage />
+    </Suspense>
+  );
+}
+
+function ChatPage() {
   const { selectedFormats } = useChatStore();
+  const searchParams = useSearchParams();
   const [imageStyle, setImageStyle] = useState("photorealistic");
   const [conversationId, setConversationId] = useState(() => generateConversationId());
   const [savedConversations, setSavedConversations] = useState<StoredConversation[]>([]);
+  const [hasLoadedFromUrl, setHasLoadedFromUrl] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { messages, sendMessage, status, setMessages } = useChat();
@@ -63,6 +75,37 @@ export default function ChatPage() {
   useEffect(() => {
     setSavedConversations(listConversations());
   }, []);
+
+  // Handle URL params: ?id=xxx loads conversation, ?new=xxx starts fresh
+  useEffect(() => {
+    if (hasLoadedFromUrl) return;
+    const loadId = searchParams.get("id");
+    const isNew = searchParams.get("new");
+
+    if (isNew) {
+      setConversationId(generateConversationId());
+      setMessages([]);
+      setHasLoadedFromUrl(true);
+      return;
+    }
+
+    if (loadId) {
+      const conv = getConversation(loadId);
+      if (conv) {
+        setConversationId(conv.id);
+        setImageStyle(conv.imageStyle || "photorealistic");
+        const restored = conv.messages.map((m) => ({
+          id: m.id,
+          role: m.role,
+          parts: m.parts,
+          content: "",
+          createdAt: new Date(m.createdAt),
+        }));
+        setMessages(restored as any);
+      }
+      setHasLoadedFromUrl(true);
+    }
+  }, [searchParams, hasLoadedFromUrl, setMessages]);
 
   // Auto-save conversation when messages change
   useEffect(() => {
@@ -97,6 +140,18 @@ export default function ChatPage() {
 
     setSavedConversations(listConversations());
   }, [messages]);
+
+  // Listen for action button events from chat messages (Edit, Variants, etc.)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.prompt) {
+        handleSubmit(detail.prompt);
+      }
+    };
+    window.addEventListener("arbistudio:chat-action", handler);
+    return () => window.removeEventListener("arbistudio:chat-action", handler);
+  });
 
   // Auto-scroll
   useEffect(() => {
