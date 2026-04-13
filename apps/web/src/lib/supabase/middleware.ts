@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { cookieOptions } from "./cookie-options";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -8,6 +9,7 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions,
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -25,7 +27,6 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // Skip auth check if Supabase is not configured
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -38,7 +39,6 @@ export async function updateSession(request: NextRequest) {
     const { data } = await supabase.auth.getUser();
     user = data.user;
   } catch {
-    // Supabase not reachable — allow through
     return supabaseResponse;
   }
 

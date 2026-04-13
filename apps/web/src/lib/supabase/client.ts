@@ -1,5 +1,6 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "@/lib/database.types";
+import { cookieOptions } from "./cookie-options";
 
 export function createClient() {
   return createBrowserClient<Database>(
@@ -7,6 +8,7 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       db: { schema: "studio" },
+      cookieOptions,
     }
   );
 }
