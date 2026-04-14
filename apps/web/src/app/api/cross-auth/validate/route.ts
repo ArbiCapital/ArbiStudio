@@ -1,78 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { createHmac } from "crypto";
 
-/**
- * SSO validate endpoint for ArbiStudio.
- * Receives a one-time code from the Hub, looks up the session tokens
- * in the shared sso_tokens table, sets the Supabase session, and redirects.
- */
 export async function GET(req: NextRequest) {
-  const code = req.nextUrl.searchParams.get("code");
+  const token = req.nextUrl.searchParams.get("token");
+  if (!token) return NextResponse.redirect(new URL("/login", req.url));
 
-  if (!code) {
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
+  const secret = process.env.CROSS_APP_SECRET;
+  if (!secret) return NextResponse.redirect(new URL("/login", req.url));
 
   try {
+    // Verify HMAC
+    const [payloadB64, sig] = token.split(".");
+    const expected = createHmac("sha256", secret).update(payloadB64).digest("base64url");
+    if (expected !== sig) throw new Error("Bad signature");
+
+    const { email, ts } = JSON.parse(Buffer.from(payloadB64, "base64url").toString());
+    if (Date.now() - ts > 30000) throw new Error("Expired");
+
+    // Create Supabase session
     const cookieStore = await cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
+          getAll() { return cookieStore.getAll(); },
           setAll(cookiesToSet) {
             try {
               cookiesToSet.forEach(({ name, value, options }) =>
                 cookieStore.set(name, value, options)
               );
-            } catch {
-              // Ignore
-            }
+            } catch { /* ignore */ }
           },
         },
       }
     );
 
-    // Look up the SSO token
-    const { data: ssoToken, error: lookupError } = await supabase
-      .from("sso_tokens")
-      .select("access_token, refresh_token, email, used, created_at")
-      .eq("token", code)
-      .single();
-
-    if (lookupError || !ssoToken) {
-      return NextResponse.redirect(new URL("/login?error=invalid_code", req.url));
-    }
-
-    // Check not used and not expired (60 seconds max)
-    if (ssoToken.used) {
-      return NextResponse.redirect(new URL("/login?error=code_used", req.url));
-    }
-
-    const age = Date.now() - new Date(ssoToken.created_at).getTime();
-    if (age > 60000) {
-      return NextResponse.redirect(new URL("/login?error=code_expired", req.url));
-    }
-
-    // Mark as used
-    await supabase.from("sso_tokens").update({ used: true }).eq("token", code);
-
-    // Set the session using the stored tokens
-    const { error: sessionError } = await supabase.auth.setSession({
-      access_token: ssoToken.access_token,
-      refresh_token: ssoToken.refresh_token,
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password: process.env.SSO_SHARED_PASSWORD || "47564756Oskar",
     });
 
-    if (sessionError) {
-      return NextResponse.redirect(new URL("/login?error=session_failed", req.url));
-    }
+    if (error) return NextResponse.redirect(new URL("/login?error=auth", req.url));
 
     return NextResponse.redirect(new URL("/chat", req.url));
   } catch {
-    return NextResponse.redirect(new URL("/login?error=sso_error", req.url));
+    return NextResponse.redirect(new URL("/login?error=sso", req.url));
   }
 }
