@@ -113,6 +113,18 @@ export default function VideoStudioPage() {
       const data = await res.json();
       if (data.success) {
         setGeneratedVideo(data.video.url);
+        // Auto-save to library
+        const { saveAssetToLibrary } = await import("@/lib/asset-storage");
+        saveAssetToLibrary({
+          type: "video",
+          url: data.video.url,
+          width: 1920,
+          height: 1080,
+          model: currentModel?.name || selectedModel,
+          ratio: "16:9",
+          prompt: enhancedPrompt,
+          createdAt: new Date().toISOString(),
+        });
       } else {
         setVideoError(data.error || "Error generando video");
       }

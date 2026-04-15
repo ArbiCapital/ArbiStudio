@@ -40,7 +40,8 @@ export default function LibraryPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `arbistudio-${asset.model}-${asset.ratio.replace(":", "x")}-${Date.now()}.png`;
+      const ext = asset.type === "video" ? "mp4" : "png";
+      a.download = `arbistudio-${asset.model}-${asset.ratio.replace(":", "x")}-${Date.now()}.${ext}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -111,12 +112,24 @@ export default function LibraryPage() {
             {filtered.map((asset) => (
               <div key={asset.id} className="group relative overflow-hidden rounded-xl border border-border bg-card transition-all hover:border-primary/50 hover:shadow-lg">
                 <div className="aspect-square overflow-hidden bg-muted">
-                  <img
-                    src={asset.url}
-                    alt={asset.prompt}
-                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                    loading="lazy"
-                  />
+                  {asset.type === "video" ? (
+                    <video
+                      src={asset.url}
+                      className="h-full w-full object-cover"
+                      muted
+                      loop
+                      playsInline
+                      onMouseEnter={e => (e.currentTarget as HTMLVideoElement).play()}
+                      onMouseLeave={e => { (e.currentTarget as HTMLVideoElement).pause(); (e.currentTarget as HTMLVideoElement).currentTime = 0; }}
+                    />
+                  ) : (
+                    <img
+                      src={asset.url}
+                      alt={asset.prompt}
+                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                      loading="lazy"
+                    />
+                  )}
                 </div>
                 <div className="p-3">
                   <p className="truncate text-xs font-medium">{asset.prompt.replace(/\[CONTEXT:.*?\]\n?/g, "").slice(0, 60)}</p>
@@ -142,7 +155,11 @@ export default function LibraryPage() {
             {filtered.map((asset) => (
               <div key={asset.id} className="group flex items-center gap-4 rounded-lg border border-transparent px-4 py-3 hover:border-border hover:bg-muted/30">
                 <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
-                  <img src={asset.url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  {asset.type === "video" ? (
+                    <video src={asset.url} className="h-full w-full object-cover" muted playsInline />
+                  ) : (
+                    <img src={asset.url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{asset.prompt.slice(0, 80)}</p>
